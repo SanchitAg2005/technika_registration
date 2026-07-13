@@ -63,8 +63,8 @@ const queueParticipantSync = async (user) => {
     });
     await task.save();
     
-    // Proactively trigger processing of this single task asynchronously
-    processSingleTask(task).catch(err => console.error('Immediate sync failed, will retry later:', err.message));
+    // Proactively trigger and await processing of this single task to ensure it finishes before function exits
+    await processSingleTask(task);
   } catch (error) {
     console.error('Failed to queue participant sync:', error.message);
   }
@@ -93,7 +93,8 @@ const queueRegistrationSync = async (registration, event) => {
     });
     await task.save();
 
-    processSingleTask(task).catch(err => console.error('Immediate sync failed, will retry later:', err.message));
+    // Proactively trigger and await processing of this single task to ensure it finishes before function exits
+    await processSingleTask(task);
   } catch (error) {
     console.error('Failed to queue registration sync:', error.message);
   }
@@ -288,6 +289,11 @@ const processSingleTask = async (task) => {
  * Periodically process failed or pending sync tasks in the queue (retries)
  */
 const startQueueWorker = () => {
+  if (process.env.VERCEL) {
+    console.log('[SHEETS WORKER] Running in Vercel environment. Background intervals and automatic database reconciliation are disabled.');
+    return;
+  }
+
   // On startup, reset all failed tasks back to PENDING so they are retried now that credentials are fixed!
   SheetsQueue.updateMany(
     { status: 'FAILED' },

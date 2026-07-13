@@ -124,16 +124,28 @@ router.post('/', upload.single('paymentScreenshot'), async (req, res) => {
 
     // Local Fallback: If not uploaded to Supabase, save locally in public/uploads/
     if (!uploadedToSupabase) {
-      const uploadsDir = path.join(__dirname, '..', 'public', 'uploads');
-      if (!fs.existsSync(uploadsDir)) {
-        fs.mkdirSync(uploadsDir, { recursive: true });
+      try {
+        if (process.env.VERCEL) {
+          console.warn('[VERCEL WARNING] Uploading screenshot to local folder in Vercel serverless context. This file will NOT persist!');
+        }
+        const uploadsDir = path.join(__dirname, '..', 'public', 'uploads');
+        if (!fs.existsSync(uploadsDir)) {
+          fs.mkdirSync(uploadsDir, { recursive: true });
+        }
+        const localPath = path.join(uploadsDir, fileName);
+        fs.writeFileSync(localPath, compressedBuffer);
+        
+        // Set the path served by Express static
+        paymentScreenshotUrl = `/uploads/${fileName}`;
+        console.log(`Payment screenshot saved locally at: ${paymentScreenshotUrl}`);
+      } catch (writeError) {
+        console.error('[WRITE ERROR] Failed to write local screenshot file:', writeError.message);
+        // Fallback to a placeholder URL so registration doesn't fail
+        paymentScreenshotUrl = `/uploads/failed_local_write_${fileName}`;
+        if (process.env.VERCEL) {
+          console.warn('[VERCEL ERROR] Local write failed due to read-only filesystem. Configured SUPABASE_URL & SUPABASE_KEY are highly recommended!');
+        }
       }
-      const localPath = path.join(uploadsDir, fileName);
-      fs.writeFileSync(localPath, compressedBuffer);
-      
-      // Set the path served by Express static
-      paymentScreenshotUrl = `/uploads/${fileName}`;
-      console.log(`Payment screenshot saved locally at: ${paymentScreenshotUrl}`);
     }
 
     // 5. Hash Password
@@ -157,8 +169,8 @@ router.post('/', upload.single('paymentScreenshot'), async (req, res) => {
     });
     await user.save();
 
-    // 7. Queue Google Sheets Synchronization task asynchronously
-    queueParticipantSync(user);
+    // 7. Sync Google Sheets Synchronization (awaited for Vercel stability)
+    await queueParticipantSync(user);
 
     // 8. Generate receipt PDF buffer (no events initially)
     const pdfBuffer = await generateReceipt(user, password, []);

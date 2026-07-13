@@ -75,6 +75,13 @@ const connectDB = async () => {
     }
   } catch (error) {
     console.warn(`\n[DB WARNING] Failed to connect to MongoDB Atlas/Host: ${error.message}`);
+    
+    // Disable in-memory fallback on Vercel or in Production
+    if (process.env.VERCEL || process.env.NODE_ENV === 'production') {
+      console.error('CRITICAL: In-memory MongoDB fallback is disabled on Vercel/Production. A real MongoDB Atlas connection is required!');
+      throw error;
+    }
+
     console.warn(`This is likely due to your current IP address not being whitelisted in MongoDB Atlas.`);
     console.log(`Attempting to launch an in-memory MongoDB database for testing...\n`);
 

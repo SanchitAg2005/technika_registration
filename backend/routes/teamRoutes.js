@@ -229,8 +229,8 @@ router.post('/register', auth, async (req, res) => {
         leaderReg.status = 'CONFIRMED';
         await leaderReg.save();
         
-        // Queue individual sheets sync
-        queueRegistrationSync(leaderReg, event);
+        // Sync individual sheets (awaited for Vercel stability)
+        await queueRegistrationSync(leaderReg, event);
       }
 
       // 2. Cancel all pending invitations
@@ -262,10 +262,10 @@ router.post('/register', auth, async (req, res) => {
       { status: 'CONFIRMED' }
     );
 
-    // Queue Google Sheets sync for all confirmed team registrations
+    // Sync Google Sheets for all confirmed team registrations (awaited for Vercel stability)
     const confirmedRegs = await Registration.find({ teamId, eventId: team.eventId, status: 'CONFIRMED' });
     for (const reg of confirmedRegs) {
-      queueRegistrationSync(reg, event);
+      await queueRegistrationSync(reg, event);
     }
 
     console.log(`[TEAM REGISTERED] Team ${teamId} locked. Registrations confirmed & Google Sheets queue synced.`);

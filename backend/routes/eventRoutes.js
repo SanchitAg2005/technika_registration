@@ -65,8 +65,8 @@ router.post('/register-individual', auth, async (req, res) => {
     });
     await registration.save();
 
-    // 5. Queue Google Sheets Sync
-    queueRegistrationSync(registration, event);
+    // 5. Sync Google Sheets (awaited for Vercel stability)
+    await queueRegistrationSync(registration, event);
 
     res.json({
       success: true,
