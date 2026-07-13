@@ -1,0 +1,547 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Technica 2026 - Participant Dashboard</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&family=Outfit:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  <link rel="stylesheet" href="css/style.css">
+  <style>
+    /* Dashboard specific layout enhancements */
+    .dashboard-nav {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 15px 25px;
+      margin-bottom: 20px;
+    }
+    
+    .nav-tabs {
+      display: flex;
+      gap: 10px;
+    }
+    
+    .nav-tab-btn {
+      padding: 10px 18px;
+      background: rgba(255, 255, 255, 0.05);
+      border: 1px solid var(--panel-border);
+      border-radius: var(--radius-md);
+      color: var(--text-muted);
+      cursor: pointer;
+      font-family: var(--font-heading);
+      font-weight: 500;
+      transition: all var(--transition-fast);
+    }
+    
+    .nav-tab-btn:hover, .nav-tab-btn.active {
+      background: var(--primary);
+      color: #fff;
+      border-color: var(--primary);
+      box-shadow: 0 0 15px var(--primary-glow);
+    }
+    
+    .badge {
+      background: var(--accent-pink);
+      color: #fff;
+      padding: 2px 7px;
+      font-size: 0.75rem;
+      border-radius: 20px;
+      margin-left: 6px;
+      font-weight: 600;
+    }
+    
+    .logout-btn {
+      background: transparent;
+      border: 1px solid rgba(239, 68, 68, 0.3);
+      color: var(--error);
+      padding: 8px 16px;
+      border-radius: var(--radius-md);
+      cursor: pointer;
+      font-weight: 500;
+      transition: all var(--transition-fast);
+    }
+    
+    .logout-btn:hover {
+      background: rgba(239, 68, 68, 0.1);
+      box-shadow: 0 0 10px rgba(239, 68, 68, 0.2);
+    }
+    
+    .dashboard-grid {
+      display: grid;
+      grid-template-columns: 1.2fr 1.8fr;
+      gap: 30px;
+    }
+    
+    .info-card {
+      background: rgba(15, 23, 42, 0.45);
+      border: 1px solid var(--panel-border);
+      border-radius: var(--radius-md);
+      padding: 20px;
+      margin-bottom: 20px;
+    }
+    
+    .info-title {
+      font-size: 1.1rem;
+      font-weight: 600;
+      color: var(--secondary);
+      margin-bottom: 15px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    
+    .profile-list {
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+    
+    .profile-item {
+      display: flex;
+      flex-direction: column;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.03);
+      padding-bottom: 8px;
+    }
+    
+    .profile-item span:first-child {
+      font-size: 0.75rem;
+      color: var(--text-dark);
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+    }
+    
+    .profile-item span:last-child {
+      font-size: 0.95rem;
+      color: var(--text-main);
+      font-weight: 500;
+    }
+
+    .registered-event-item {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 12px 16px;
+      background: rgba(255, 255, 255, 0.03);
+      border: 1px solid var(--panel-border);
+      border-radius: var(--radius-md);
+      margin-bottom: 10px;
+    }
+
+    .registered-event-item h4 {
+      font-size: 0.95rem;
+      font-weight: 600;
+      color: var(--text-main);
+    }
+    
+    .registered-event-item span {
+      font-size: 0.75rem;
+      padding: 3px 8px;
+      border-radius: 4px;
+      font-weight: 500;
+    }
+
+    .registered-event-item .badge-indiv {
+      background: rgba(6, 182, 212, 0.1);
+      color: var(--secondary);
+      border: 1px solid rgba(6, 182, 212, 0.2);
+    }
+    
+    .registered-event-item .badge-team {
+      background: rgba(99, 102, 241, 0.1);
+      color: var(--primary);
+      border: 1px solid rgba(99, 102, 241, 0.2);
+    }
+
+    /* Sub-tabs for Event selection */
+    .sub-tabs {
+      display: flex;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+      margin-bottom: 20px;
+    }
+    
+    .sub-tab-btn {
+      padding: 8px 16px;
+      background: transparent;
+      border: none;
+      color: var(--text-muted);
+      cursor: pointer;
+      font-family: var(--font-heading);
+      font-weight: 500;
+      font-size: 0.95rem;
+      position: relative;
+    }
+    
+    .sub-tab-btn.active {
+      color: var(--secondary);
+    }
+    
+    .sub-tab-btn.active::after {
+      content: '';
+      position: absolute;
+      bottom: -1px;
+      left: 0;
+      width: 100%;
+      height: 2px;
+      background: var(--secondary);
+    }
+    
+    /* Notifications */
+    .notif-card {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 16px 20px;
+      background: rgba(15, 23, 42, 0.45);
+      border: 1px solid var(--panel-border);
+      border-radius: var(--radius-md);
+      margin-bottom: 12px;
+    }
+    
+    .notif-info h4 {
+      font-size: 0.95rem;
+      font-weight: 600;
+      color: var(--text-main);
+      margin-bottom: 4px;
+    }
+    
+    .notif-info p {
+      font-size: 0.85rem;
+      color: var(--text-muted);
+    }
+    
+    .notif-actions {
+      display: flex;
+      gap: 8px;
+    }
+    
+    .notif-btn-accept {
+      background: var(--success);
+      color: #fff;
+      border: none;
+      padding: 6px 12px;
+      border-radius: 6px;
+      font-size: 0.85rem;
+      font-weight: 500;
+      cursor: pointer;
+    }
+    
+    .notif-btn-decline {
+      background: var(--error);
+      color: #fff;
+      border: none;
+      padding: 6px 12px;
+      border-radius: 6px;
+      font-size: 0.85rem;
+      font-weight: 500;
+      cursor: pointer;
+    }
+
+    /* Team Panels */
+    .team-panel-card {
+      background: rgba(15, 23, 42, 0.6);
+      border: 1px dashed var(--primary);
+      border-radius: var(--radius-md);
+      padding: 18px;
+      margin-top: 10px;
+      margin-bottom: 20px;
+    }
+    
+    .team-status-badge {
+      font-size: 0.75rem;
+      padding: 2px 8px;
+      border-radius: 4px;
+      font-weight: 600;
+      text-transform: uppercase;
+    }
+    
+    .status-forming { background: rgba(234, 179, 8, 0.1); color: #facc15; border: 1px solid rgba(234, 179, 8, 0.2); }
+    .status-registered { background: rgba(16, 185, 129, 0.1); color: var(--success); border: 1px solid rgba(16, 185, 129, 0.2); }
+
+    .team-members-list {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      margin-top: 10px;
+      margin-bottom: 15px;
+    }
+    
+    .team-member-row {
+      display: flex;
+      justify-content: space-between;
+      font-size: 0.85rem;
+      padding: 6px 10px;
+      background: rgba(255, 255, 255, 0.02);
+      border-radius: 4px;
+    }
+
+    .invite-box {
+      display: flex;
+      gap: 10px;
+      margin-top: 10px;
+      margin-bottom: 15px;
+    }
+    
+    .invite-box input {
+      flex: 1;
+      padding: 8px 12px;
+      font-size: 0.85rem;
+    }
+    
+    .invite-box button {
+      padding: 8px 16px;
+      font-size: 0.85rem;
+    }
+
+    @media (max-width: 768px) {
+      .dashboard-grid {
+        grid-template-columns: 1fr;
+      }
+      .dashboard-nav {
+        flex-direction: column;
+        gap: 15px;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="glow-bg">
+    <div class="glow-sphere sphere-1"></div>
+    <div class="glow-sphere sphere-2"></div>
+  </div>
+
+  <div class="container">
+    <!-- Top Nav Header -->
+    <div class="card glassmorphism dashboard-nav">
+      <div class="logo" style="font-size: 1.8rem; margin: 0;">TECHNICA<span>2026</span></div>
+      
+      <div class="nav-tabs">
+        <button class="nav-tab-btn active" data-target="personal-details-section">
+          <i class="fa-solid fa-user-gear"></i> Profile
+        </button>
+        <button class="nav-tab-btn" data-target="notifications-section">
+          <i class="fa-solid fa-bell"></i> Invites <span class="badge hidden" id="notif-badge">0</span>
+        </button>
+        <button class="nav-tab-btn" data-target="event-enrollment-section">
+          <i class="fa-solid fa-trophy"></i> Enroll Events
+        </button>
+      </div>
+
+      <button class="logout-btn" id="logout-btn"><i class="fa-solid fa-arrow-right-from-bracket"></i> Logout</button>
+    </div>
+
+    <!-- Active Section Panels -->
+    <!-- 1. PERSONAL DETAILS SECTION -->
+    <div class="dashboard-section" id="personal-details-section">
+      <div class="dashboard-grid">
+        <!-- Profile Column -->
+        <div class="card glassmorphism" style="padding: 25px;">
+          <div class="info-title" style="display: flex; justify-content: space-between; align-items: center; width: 100%;">
+            <span><i class="fa-solid fa-user-astronaut"></i> Personal Details</span>
+            <button class="action-btn-primary" id="edit-profile-btn" style="padding: 6px 12px; font-size: 0.8rem; background: transparent; border: 1px solid var(--secondary);"><i class="fa-solid fa-user-pen"></i> Edit Details</button>
+          </div>
+          
+          <div class="profile-list" id="profile-details-list">
+            <!-- Populated via Javascript -->
+            <div class="profile-item">
+              <span>Registration ID</span>
+              <span style="font-family: var(--font-heading); font-weight: 700; color: var(--secondary);" id="profile-reg-id">------</span>
+            </div>
+            <div class="profile-item">
+              <span>Full Name</span>
+              <span id="profile-name">Loading...</span>
+            </div>
+            <div class="profile-item">
+              <span>Gmail Address</span>
+              <span id="profile-email">Loading...</span>
+            </div>
+            <div class="profile-item">
+              <span>WhatsApp Number</span>
+              <span id="profile-whatsapp">Loading...</span>
+            </div>
+            <div class="profile-item">
+              <span>Institution</span>
+              <span id="profile-institution">Loading...</span>
+            </div>
+            <div class="profile-item">
+              <span>Course & Standard</span>
+              <span id="profile-academic-details">Loading...</span>
+            </div>
+            <div class="profile-item">
+              <span>Payment UTR</span>
+              <span style="font-family: monospace;" id="profile-utr">Loading...</span>
+            </div>
+            <div class="profile-item">
+              <span>Gender</span>
+              <span id="profile-gender">Loading...</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Registered Events Column -->
+        <div class="card glassmorphism" style="padding: 25px;">
+          <div class="info-title" style="justify-content: space-between;">
+            <span><i class="fa-solid fa-square-poll-horizontal"></i> Registered Events</span>
+            <button class="action-btn-primary" id="download-receipt-btn" style="padding: 6px 12px; font-size: 0.8rem;">
+              <i class="fa-solid fa-file-pdf"></i> Download Receipt
+            </button>
+          </div>
+          
+          <p class="section-subtitle">Below are the events you are officially enrolled in. Your attendance QR code will contain these events.</p>
+          
+          <div id="registered-events-container" style="margin-top: 15px;">
+            <!-- Populated via Javascript -->
+            <div class="events-loader">
+              <i class="fa-solid fa-circle-notch fa-spin"></i> Loading registrations...
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 2. NOTIFICATIONS SECTION -->
+    <div class="dashboard-section hidden" id="notifications-section">
+      <div class="card glassmorphism" style="padding: 30px;">
+        <div class="card-header" style="margin-bottom: 25px; padding-bottom: 15px;">
+          <h2>Team Invitations Inbox</h2>
+          <p>Accept invitations from team leaders to join team events. Accepting will enroll you in the event immediately.</p>
+        </div>
+
+        <div id="notifications-container">
+          <!-- Populated via Javascript -->
+          <div class="events-loader">
+            <i class="fa-solid fa-circle-notch fa-spin"></i> Checking inbox...
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 3. EVENT ENROLLMENT SECTION -->
+    <div class="dashboard-section hidden" id="event-enrollment-section">
+      <div class="card glassmorphism" style="padding: 30px;">
+        <div class="card-header" style="margin-bottom: 25px; padding-bottom: 15px; display: flex; justify-content: space-between; align-items: flex-end;">
+          <div>
+            <h2>Technica 2026 Arenas</h2>
+            <p>Enroll in individual events directly, or create teams and invite friends for group challenges.</p>
+          </div>
+        </div>
+
+        <!-- Search bar -->
+        <div style="margin-bottom: 20px;">
+          <div class="input-wrapper" style="max-width: 450px; background: rgba(15, 23, 42, 0.45); border: 1px solid var(--panel-border); border-radius: var(--radius-md);">
+            <i class="fa-solid fa-magnifying-glass input-icon" style="color: var(--text-dark);"></i>
+            <input type="text" id="event-search-input" placeholder="Search events by name or category..." style="background: transparent; border: none; width: 100%; color: #fff; padding: 10px 10px 10px 40px; font-size: 0.9rem;">
+          </div>
+        </div>
+
+        <!-- Inner Tabs -->
+        <div class="sub-tabs">
+          <button class="sub-tab-btn active" id="tab-indiv-trigger" onclick="switchEnrollSubTab('indiv')">Individual Events</button>
+          <button class="sub-tab-btn" id="tab-team-trigger" onclick="switchEnrollSubTab('team')">Team Events</button>
+        </div>
+
+        <!-- Feedback Alert Panel -->
+        <div class="error-panel hidden" id="enroll-alert" style="margin-bottom: 20px; padding: 12px 16px;">
+          <i class="fa-solid fa-circle-exclamation error-icon" id="enroll-alert-icon"></i>
+          <span id="enroll-alert-message"></span>
+        </div>
+
+        <!-- Individual Events Enrollment Grid -->
+        <div class="enroll-sub-section" id="enroll-indiv-pane">
+          <div id="indiv-events-list">
+            <!-- Populated via Javascript -->
+          </div>
+        </div>
+
+        <!-- Team Events Enrollment Grid -->
+        <div class="enroll-sub-section hidden" id="enroll-team-pane">
+          <div id="team-events-list">
+            <!-- Populated via Javascript -->
+          </div>
+        </div>
+
+      </div>
+    </div>
+
+    <footer class="main-footer">
+      <p>&copy; 2026 Technica Core Operations. All rights reserved.</p>
+    </footer>
+  </div>
+
+  <!-- Edit Profile Modal -->
+  <div class="modal hidden" id="edit-profile-modal" style="position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.7); display: flex; align-items: center; justify-content: center; z-index: 1000;">
+    <div class="card glassmorphism" style="width: 90%; max-width: 500px; padding: 25px; border: 1px solid var(--secondary);">
+      <div class="card-header" style="margin-bottom: 20px; text-align: center;">
+        <h3>Edit Personal Details</h3>
+        <p>Email ID, UTR, Password, and Registration ID cannot be changed.</p>
+      </div>
+      <form id="edit-profile-form">
+        <div class="form-group" style="margin-bottom: 15px;">
+          <label for="edit-name">Full Name</label>
+          <div class="input-wrapper">
+            <i class="fa-solid fa-signature input-icon"></i>
+            <input type="text" id="edit-name" required placeholder="e.g. John Doe">
+          </div>
+        </div>
+        <div class="form-grid-inner" style="display: grid; grid-template-columns: 1fr 1fr; gap:15px; margin-bottom: 15px;">
+          <div class="form-group">
+            <label for="edit-age">Age</label>
+            <div class="input-wrapper">
+              <i class="fa-solid fa-calendar-days input-icon"></i>
+              <input type="number" id="edit-age" required min="12" max="100" placeholder="18">
+            </div>
+          </div>
+          <div class="form-group">
+            <label for="edit-gender">Gender</label>
+            <div class="input-wrapper">
+              <i class="fa-solid fa-venus-mars input-icon"></i>
+              <select id="edit-gender" required style="background: var(--bg-color); color: #fff; border: none; width: 100%;">
+                <option value="Male">Male</option>
+                <option value="Female">Female</option>
+              </select>
+            </div>
+          </div>
+        </div>
+        <div class="form-group" style="margin-bottom: 15px;">
+          <label for="edit-whatsapp">WhatsApp Number</label>
+          <div class="input-wrapper">
+            <i class="fa-brands fa-whatsapp input-icon"></i>
+            <input type="tel" id="edit-whatsapp" required placeholder="WhatsApp Number">
+          </div>
+        </div>
+        <div class="form-group" style="margin-bottom: 15px;">
+          <label for="edit-institution">Academic Institution</label>
+          <div class="input-wrapper">
+            <i class="fa-solid fa-school input-icon"></i>
+            <input type="text" id="edit-institution" required placeholder="College name">
+          </div>
+        </div>
+        <div class="form-grid-inner" style="display: grid; grid-template-columns: 1.2fr 0.8fr; gap:15px; margin-bottom: 20px;">
+          <div class="form-group">
+            <label for="edit-course">Course / Stream</label>
+            <div class="input-wrapper">
+              <i class="fa-solid fa-book-open input-icon"></i>
+              <input type="text" id="edit-course" required placeholder="e.g. B.Tech CSE">
+            </div>
+          </div>
+          <div class="form-group">
+            <label for="edit-semester">Sem / Standard</label>
+            <div class="input-wrapper">
+              <i class="fa-solid fa-layer-group input-icon"></i>
+              <input type="text" id="edit-semester" required placeholder="Semester">
+            </div>
+          </div>
+        </div>
+        <div style="display: flex; justify-content: flex-end; gap: 10px;">
+          <button type="button" class="logout-btn" id="close-edit-modal-btn" style="border-color: rgba(255,255,255,0.2); color: #fff; padding: 8px 16px;">Cancel</button>
+          <button type="submit" class="submit-btn" style="width:auto; padding: 8px 20px;">Save Changes</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <script src="js/dashboard.js"></script>
+</body>
+</html>

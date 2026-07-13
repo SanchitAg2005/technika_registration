@@ -1,0 +1,70 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Technica 2026 - Login</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&family=Outfit:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+  <div class="glow-bg">
+    <div class="glow-sphere sphere-1"></div>
+    <div class="glow-sphere sphere-2"></div>
+  </div>
+
+  <div class="container" style="max-width: 450px; margin-top: 8vh;">
+    <header class="main-header">
+      <div class="logo">TECHNICA<span>2026</span></div>
+      <p class="tagline">Sign in to manage your registrations, create teams, and check invitations.</p>
+    </header>
+
+    <div class="card glassmorphism">
+      <div class="card-header" style="text-align: center; margin-bottom: 25px; padding-bottom: 15px;">
+        <h2 style="font-size: 1.5rem;">Participant Login</h2>
+      </div>
+
+      <form id="login-form">
+        <div class="form-group" style="margin-bottom: 18px;">
+          <label for="registrationIdOrEmail">Registration ID or Email</label>
+          <div class="input-wrapper">
+            <i class="fa-solid fa-user-shield input-icon"></i>
+            <input type="text" id="registrationIdOrEmail" required placeholder="e.g. A7K29Q or your email">
+          </div>
+        </div>
+
+        <div class="form-group" style="margin-bottom: 25px;">
+          <label for="password">Password</label>
+          <div class="input-wrapper">
+            <i class="fa-solid fa-key input-icon"></i>
+            <input type="password" id="password" required placeholder="Enter password">
+          </div>
+        </div>
+
+        <div class="error-panel hidden" id="error-panel" style="margin-bottom: 15px; padding: 12px 16px;">
+          <i class="fa-solid fa-circle-exclamation error-icon"></i>
+          <span id="error-message"></span>
+        </div>
+
+        <button type="submit" class="submit-btn" id="login-btn">
+          <span class="btn-text">Log In <i class="fa-solid fa-arrow-right-to-bracket"></i></span>
+          <span class="btn-spinner hidden"><i class="fa-solid fa-circle-notch fa-spin"></i> Authenticating...</span>
+        </button>
+      </form>
+
+      <div style="text-align: center; margin-top: 25px;">
+        <p class="help-text" style="font-size: 0.85rem;">Don't have an account? <a href="register.html" style="color: var(--secondary); text-decoration: underline; font-weight: 500;">Register Now</a></p>
+      </div>
+    </div>
+
+    <footer class="main-footer">
+      <p>&copy; 2026 Technica Core Operations. All rights reserved.</p>
+    </footer>
+  </div>
+
+  <script src="js/login.js"></script>
+</body>
+</html>

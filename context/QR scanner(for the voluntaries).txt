@@ -1,0 +1,52 @@
+    			 QR scanner(for the voluntaries)
+=============================================================================================================================================================
+1.use case
+=============================================================================================================================================================
+1.campus registration :-
+.qr will be scanned while the entry of the participants to check if they have registered for the event or not.
+. The qr should be working offline as the network may be not strong to fetch data from database.
+. The data inside the qr will be encrypted and the key will be inside the application scanning it.
+. Once the qr is scanned it will just check the secret key, if it matches the applications key then the user is valid and will be marked "checked_in"
+. The marking data should be stored online so if the user is already marked in campus it should show authenticated or any nearest suitable word
+. The scanning of the qr for the first time will check it the user's unique id is present in the check-in log because if not, the log should enter it.
+=============================================================================================================================================================
+2.Event authentication :-
+. Qr will store the data of events user has enrolled in.
+. The qr will be scanned via the applications event checkup scheme.
+. Every event has its own scanner and looks for its own registration confirmation.
+  Individual events check the unique id and if the user enrolled the event or not.
+. If user is enrolled create a log where user is marked present for the event.
+. If not the user will be rejected for the entry.
+. If the enrolled user is scanned for the second time then the app will show already marked present (for the particular event only )
+. This idea apply for the each individual event as same
+. For team events the participants will have the team id, event id and leader name in it which will be shown in the application.
+
+=============================================================================================================================================================
+2.Application
+.user will be given access to the features of the app based on the rbac by admin or the app rule
+=============================================================================================================================================================
+1.admin
+.admin page is for the tech lead
+.admin can create new accounts for a event
+.admin can revoke an account access
+.admin can check the activity of users of application
+.admin can himself be  a part of an event
+.admin can not add new event
+.admin can check the status of a participant like is he cheeked in or which event is he in
+.admin can assign the room no to the event
+=============================================================================================================================================================
+2.login page
+.login page is rbac
+.the user credential is made by admin
+.admins user credential is made in supabase auth
+.login credentials will load the events scanner for each users differently
+=============================================================================================================================================================
+3.check-in scanner page
+.user will see the scanner opened in the device.
+.as user scans the user details will show up
+.the scanning qr will follow the campus authentication process
+=============================================================================================================================================================
+4.event scanner page
+.user will only be given access to the event he/she is assigned for
+.user will scan the qr and check the enrolment status
+.the even scanner page will follow the Event authentication process
