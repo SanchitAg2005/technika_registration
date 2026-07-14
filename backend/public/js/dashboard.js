@@ -418,8 +418,12 @@ function renderIndividualEnrollment(events = allEventsList) {
   const container = document.getElementById('indiv-events-list');
   const indivEvents = events.filter(e => e.individualAllowed);
   
-  // Render dynamic horizontal category navigation bar
-  renderCategoryTabs(indivEvents);
+  // Render dynamic horizontal category navigation bar only when tab is active
+  const indivPane = document.getElementById('enroll-indiv-pane');
+  const isIndivActive = indivPane && !indivPane.classList.contains('hidden');
+  if (isIndivActive) {
+    renderCategoryTabs(indivEvents);
+  }
 
   // Filter events based on selected category
   const filteredEvents = indivEvents.filter(e => selectedCategory === 'All' || e.category === selectedCategory);
@@ -485,8 +489,12 @@ function renderTeamEnrollment(events = allEventsList) {
   const container = document.getElementById('team-events-list');
   const teamEvents = events.filter(e => e.teamAllowed);
 
-  // Render horizontal category navigation bar
-  renderCategoryTabs(teamEvents);
+  // Render horizontal category navigation bar only when tab is active
+  const teamPane = document.getElementById('enroll-team-pane');
+  const isTeamActive = teamPane && !teamPane.classList.contains('hidden');
+  if (isTeamActive) {
+    renderCategoryTabs(teamEvents);
+  }
 
   // Filter events based on selected category
   const filteredEvents = teamEvents.filter(e => selectedCategory === 'All' || e.category === selectedCategory);
