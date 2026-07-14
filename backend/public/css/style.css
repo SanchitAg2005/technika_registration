@@ -5,32 +5,32 @@
 
   /* Color Palette */
   --bg-color: #090d16;
-  --panel-bg: rgba(15, 22, 42, 0.55);
-  --panel-border: rgba(255, 255, 255, 0.07);
+  --panel-bg: #0f172a;
+  --panel-border: #000;
   
-  --primary: #6366f1; /* Indigo */
-  --primary-glow: rgba(99, 102, 241, 0.35);
-  --secondary: #06b6d4; /* Cyan */
-  --secondary-glow: rgba(6, 182, 212, 0.35);
+  --primary: #facc15; /* Brutalist Yellow */
+  --primary-glow: none;
+  --secondary: #06b6d4; /* Brutalist Cyan */
+  --secondary-glow: none;
   
-  --accent-pink: #d946ef;
+  --accent-pink: #f43f5e; /* Brutalist Rose */
   --success: #10b981;
   --error: #ef4444;
 
   --text-main: #f8fafc;
-  --text-muted: #94a3b8;
-  --text-dark: #64748b;
+  --text-muted: #cbd5e1;
+  --text-dark: #94a3b8;
   
-  --input-bg: rgba(15, 23, 42, 0.8);
-  --input-border: rgba(255, 255, 255, 0.1);
-  --input-focus: #818cf8;
+  --input-bg: #1e293b;
+  --input-border: #000;
+  --input-focus: #06b6d4;
 
-  --shadow-neon: 0 0 25px var(--primary-glow);
-  --shadow-cyan: 0 0 25px var(--secondary-glow);
-  --radius-lg: 16px;
-  --radius-md: 10px;
-  --transition-fast: 0.2s ease;
-  --transition-normal: 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  --shadow-neon: 4px 4px 0px #000;
+  --shadow-cyan: 4px 4px 0px #000;
+  --radius-lg: 0px;
+  --radius-md: 0px;
+  --transition-fast: 0.1s ease;
+  --transition-normal: 0.15s cubic-bezier(0.175, 0.885, 0.32, 1.275);
 }
 
 /* --- Base Resets & Layout --- */
@@ -145,15 +145,13 @@ h1, h2, h3, h4, .logo {
   font-weight: 300;
 }
 
-/* --- Card Styles (Glassmorphism) --- */
+/* --- Card Styles (Neo-Brutalism) --- */
 .glassmorphism {
   background: var(--panel-bg);
-  backdrop-filter: blur(16px);
-  -webkit-backdrop-filter: blur(16px);
-  border: 1px solid var(--panel-border);
-  box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.37);
-  border-radius: var(--radius-lg);
-  transition: border-color var(--transition-normal), box-shadow var(--transition-normal);
+  border: 3px solid #000;
+  box-shadow: 6px 6px 0px #000;
+  border-radius: 0px;
+  transition: all var(--transition-fast);
 }
 
 .card {
@@ -161,7 +159,8 @@ h1, h2, h3, h4, .logo {
 }
 
 .card:hover {
-  border-color: rgba(255, 255, 255, 0.12);
+  transform: translate(-2px, -2px);
+  box-shadow: 8px 8px 0px #000;
 }
 
 .card-header {
@@ -271,14 +270,14 @@ select {
   width: 100%;
   padding: 13px 16px 13px 44px;
   background-color: var(--input-bg);
-  border: 1px solid var(--input-border);
-  border-radius: var(--radius-md);
+  border: 2px solid #000;
+  border-radius: 0px;
   color: var(--text-main);
   font-family: var(--font-body);
   font-size: 0.95rem;
-  font-weight: 400;
+  font-weight: 500;
   outline: none;
-  transition: border-color var(--transition-fast), box-shadow var(--transition-fast), background var(--transition-fast);
+  transition: all var(--transition-fast);
 }
 
 select {
@@ -292,9 +291,9 @@ select {
 }
 
 input:focus, select:focus {
-  border-color: var(--input-focus);
-  box-shadow: 0 0 0 4px rgba(99, 102, 241, 0.15);
-  background-color: rgba(15, 23, 42, 0.95);
+  border-color: #000;
+  background-color: #1e293b;
+  box-shadow: 3px 3px 0px #000;
 }
 
 input:focus + .input-icon, select:focus + .input-icon {
@@ -343,17 +342,19 @@ input:focus + .input-icon, select:focus + .input-icon {
   display: flex;
   align-items: flex-start;
   padding: 16px;
-  background: rgba(15, 23, 42, 0.35);
-  border: 1px solid var(--panel-border);
-  border-radius: var(--radius-md);
+  background: var(--input-bg);
+  border: 3px solid #000;
+  border-radius: 0px;
   cursor: pointer;
   transition: all var(--transition-fast);
   user-select: none;
+  box-shadow: 3px 3px 0px #000;
 }
 
 .event-card:hover {
-  background: rgba(15, 23, 42, 0.65);
-  border-color: rgba(99, 102, 241, 0.3);
+  background: #1e293b;
+  transform: translate(-1px, -1px);
+  box-shadow: 4px 4px 0px #000;
 }
 
 .event-checkbox {
@@ -361,20 +362,20 @@ input:focus + .input-icon, select:focus + .input-icon {
   -webkit-appearance: none;
   min-width: 18px;
   min-height: 18px;
-  border: 1px solid var(--input-border);
-  border-radius: 4px;
+  border: 2px solid #000;
+  border-radius: 0px;
   outline: none;
   margin-right: 12px;
   margin-top: 3px;
   cursor: pointer;
   position: relative;
-  background: var(--input-bg);
+  background: #0f172a;
   transition: all var(--transition-fast);
 }
 
 .event-checkbox:checked {
   background: var(--primary);
-  border-color: var(--primary);
+  border-color: #000;
 }
 
 .event-checkbox:checked::after {
@@ -382,7 +383,7 @@ input:focus + .input-icon, select:focus + .input-icon {
   font-family: 'Font Awesome 6 Free';
   font-weight: 900;
   font-size: 10px;
-  color: #fff;
+  color: #000;
   position: absolute;
   top: 50%;
   left: 50%;
@@ -397,7 +398,7 @@ input:focus + .input-icon, select:focus + .input-icon {
 
 .event-card-title {
   font-size: 0.95rem;
-  font-weight: 600;
+  font-weight: 800;
   color: var(--text-main);
   transition: color var(--transition-fast);
 }
@@ -405,32 +406,31 @@ input:focus + .input-icon, select:focus + .input-icon {
 .event-card-desc {
   font-size: 0.8rem;
   color: var(--text-muted);
-  font-weight: 300;
+  font-weight: 400;
   line-height: 1.4;
 }
 
 .event-badge {
   font-size: 0.7rem;
-  padding: 2px 6px;
-  background: rgba(255, 255, 255, 0.05);
-  border-radius: 4px;
-  color: var(--text-muted);
+  padding: 3px 8px;
+  background: #000;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  border-radius: 0px;
+  color: var(--text-main);
   width: fit-content;
   margin-top: 4px;
-  font-weight: 500;
+  font-weight: 600;
+  text-transform: uppercase;
 }
 
 .event-card:has(.event-checkbox:checked) {
-  border-color: var(--primary);
-  background: rgba(99, 102, 241, 0.08);
-  box-shadow: 0 0 15px rgba(99, 102, 241, 0.1);
+  border-color: #000;
+  background: rgba(250, 204, 21, 0.15);
+  box-shadow: 4px 4px 0px #000;
 }
 
 .event-card:has(.event-checkbox:checked) .event-card-title {
-  color: var(--primary-glow);
-  background: linear-gradient(135deg, #fff, #a5b4fc);
-  -webkit-background-clip: text;
-  -webkit-text-fill-color: transparent;
+  color: var(--primary);
 }
 
 /* --- Drag & Drop File Upload --- */
@@ -577,16 +577,18 @@ input:focus + .input-icon, select:focus + .input-icon {
 .submit-btn {
   width: 100%;
   padding: 15px;
-  background: linear-gradient(135deg, var(--primary) 0%, var(--secondary) 100%);
-  border: none;
-  border-radius: var(--radius-md);
-  color: #fff;
+  background: var(--primary);
+  border: 3px solid #000;
+  border-radius: 0px;
+  color: #000;
   font-family: var(--font-heading);
   font-size: 1.05rem;
-  font-weight: 600;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
   cursor: pointer;
-  box-shadow: var(--shadow-neon);
-  transition: all var(--transition-normal);
+  box-shadow: 4px 4px 0px #000;
+  transition: all var(--transition-fast);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -594,12 +596,14 @@ input:focus + .input-icon, select:focus + .input-icon {
 }
 
 .submit-btn:hover {
-  transform: translateY(-2px);
-  box-shadow: 0 0 35px rgba(99, 102, 241, 0.55), 0 0 15px rgba(6, 182, 212, 0.3);
+  background: #fde047;
+  transform: translate(-2px, -2px);
+  box-shadow: 6px 6px 0px #000;
 }
 
 .submit-btn:active {
-  transform: translateY(0);
+  transform: translate(2px, 2px);
+  box-shadow: 2px 2px 0px #000;
 }
 
 .submit-btn:disabled {
@@ -717,24 +721,32 @@ input:focus + .input-icon, select:focus + .input-icon {
 
 .action-btn-primary {
   padding: 12px 28px;
-  background: var(--input-bg);
-  border: 1px solid var(--input-border);
-  border-radius: var(--radius-md);
-  color: var(--text-main);
-  font-weight: 500;
-  font-family: var(--font-body);
-  font-size: 0.95rem;
+  background: var(--secondary);
+  border: 3px solid #000;
+  border-radius: 0px;
+  color: #000;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  font-family: var(--font-heading);
+  font-size: 0.9rem;
   cursor: pointer;
   transition: all var(--transition-fast);
   display: inline-flex;
   align-items: center;
   gap: 8px;
+  box-shadow: 4px 4px 0px #000;
 }
 
 .action-btn-primary:hover {
-  background: var(--primary);
-  border-color: var(--primary);
-  box-shadow: var(--shadow-neon);
+  background: #22d3ee;
+  transform: translate(-2px, -2px);
+  box-shadow: 6px 6px 0px #000;
+}
+
+.action-btn-primary:active {
+  transform: translate(2px, 2px);
+  box-shadow: 2px 2px 0px #000;
 }
 
 /* --- Footer --- */

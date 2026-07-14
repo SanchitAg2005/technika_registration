@@ -42,6 +42,12 @@ document.addEventListener('DOMContentLoaded', () => {
           sec.classList.add('hidden');
         }
       });
+
+      // Trigger re-render of event enrollment lists to ensure categories render when tab becomes active
+      if (targetSectionId === 'event-enrollment-section') {
+        renderIndividualEnrollment();
+        renderTeamEnrollment();
+      }
     });
   });
 
@@ -321,26 +327,32 @@ async function respondToInvite(notifId, action) {
 
 // --- 6. Load & Render Events / Teams ---
 async function loadEventsAndTeams() {
+  // 1. Fetch active events
   try {
-    // Fetch all active events
     const evResponse = await fetch('/api/events');
     if (!evResponse.ok) throw new Error('Failed to load events.');
     allEventsList = await evResponse.json();
+  } catch (err) {
+    console.error('Failed to load events:', err);
+  }
 
-    // Fetch user active team details
+  // 2. Fetch user active team details
+  try {
     const teamResponse = await fetch('/api/teams/my-teams', {
       headers: { 'Authorization': `Bearer ${token}` }
     });
-    if (!teamResponse.ok) throw new Error('Failed to load teams.');
-    myTeamsList = await teamResponse.json();
-
-    // Render Individual and Team Event Tabs
-    renderIndividualEnrollment();
-    renderTeamEnrollment();
-
+    if (teamResponse.ok) {
+      myTeamsList = await teamResponse.json();
+    } else {
+      console.warn('Failed to load teams list.');
+    }
   } catch (err) {
-    console.error('Error loading events or teams:', err);
+    console.error('Error loading teams:', err);
   }
+
+  // 3. Render Individual and Team Event Tabs
+  renderIndividualEnrollment();
+  renderTeamEnrollment();
 }
 
 // Render dynamic enrolled events list inside Profile tab
