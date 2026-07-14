@@ -377,54 +377,82 @@ async function renderRegisteredEvents(registrations) {
   container.innerHTML = html;
 }
 
-// --- 7. Individual Events Enrollment Tab ---
+// --- 7. Category Navigation and Individual Events Enrollment Tab ---
+let selectedCategory = 'All';
+
+function getCategories(events) {
+  const cats = new Set(events.map(e => e.category));
+  return ['All', ...Array.from(cats)];
+}
+
+function renderCategoryTabs(events) {
+  const container = document.getElementById('category-tabs-container');
+  if (!container) return;
+
+  const categories = getCategories(events);
+  
+  if (!categories.includes(selectedCategory)) {
+    selectedCategory = 'All';
+  }
+
+  let html = '';
+  categories.forEach(cat => {
+    const activeClass = selectedCategory === cat ? 'active' : '';
+    html += `<button class="category-tab-btn ${activeClass}" onclick="filterCategory('${cat}')">${cat}</button>`;
+  });
+  container.innerHTML = html;
+}
+
+function filterCategory(category) {
+  selectedCategory = category;
+  const indivPane = document.getElementById('enroll-indiv-pane');
+  const isIndivActive = indivPane && !indivPane.classList.contains('hidden');
+  if (isIndivActive) {
+    renderIndividualEnrollment();
+  } else {
+    renderTeamEnrollment();
+  }
+}
+
 function renderIndividualEnrollment(events = allEventsList) {
   const container = document.getElementById('indiv-events-list');
   const indivEvents = events.filter(e => e.individualAllowed);
   
-  if (indivEvents.length === 0) {
-    container.innerHTML = '<p class="help-text">No active individual events found.</p>';
+  // Render dynamic horizontal category navigation bar
+  renderCategoryTabs(indivEvents);
+
+  // Filter events based on selected category
+  const filteredEvents = indivEvents.filter(e => selectedCategory === 'All' || e.category === selectedCategory);
+  
+  if (filteredEvents.length === 0) {
+    container.innerHTML = '<p class="help-text">No active individual events found in this category.</p>';
     return;
   }
 
-  // Group by category
-  const categories = {};
-  indivEvents.forEach(e => {
-    if (!categories[e.category]) categories[e.category] = [];
-    categories[e.category].push(e);
-  });
+  let html = `<div class="events-grid">`;
+  filteredEvents.forEach(event => {
+    const isRegistered = registeredEventIds.has(event.eventId);
+    const isHybrid = event.teamAllowed;
+    const hybridNote = isHybrid ? `<span class="event-badge" style="border: none; background: transparent; padding:0; color: #a5b4fc;"><i class="fa-solid fa-circle-info"></i> To participate with friends, register via the Team Events tab.</span>` : '';
+    
+    const btnHtml = isRegistered
+      ? `<button class="submit-btn" disabled style="background: var(--text-dark); box-shadow: none; padding: 8px 15px; font-size: 0.85rem;"><i class="fa-solid fa-circle-check"></i> Enrolled</button>`
+      : `<button class="submit-btn" style="padding: 8px 15px; font-size: 0.85rem;" onclick="enrollIndividual('${event.eventId}')">Register Solo</button>`;
 
-  let html = '';
-  for (const [category, catEvents] of Object.entries(categories)) {
     html += `
-      <div class="events-category-group">
-        <h4 class="category-title">${category}</h4>
-        <div class="events-grid">`;
-
-    catEvents.forEach(event => {
-      const isRegistered = registeredEventIds.has(event.eventId);
-      const isHybrid = event.teamAllowed;
-      const hybridNote = isHybrid ? `<span class="event-badge" style="border: none; background: transparent; padding:0; color: #a5b4fc;"><i class="fa-solid fa-circle-info"></i> To participate with friends, register via the Team Events tab.</span>` : '';
-      
-      const btnHtml = isRegistered
-        ? `<button class="submit-btn" disabled style="background: var(--text-dark); box-shadow: none; padding: 8px 15px; font-size: 0.85rem;"><i class="fa-solid fa-circle-check"></i> Enrolled</button>`
-        : `<button class="submit-btn" style="padding: 8px 15px; font-size: 0.85rem;" onclick="enrollIndividual('${event.eventId}')">Register Solo</button>`;
-
-      html += `
-        <div class="event-card" style="cursor: default;">
-          <div class="event-card-details" style="flex: 1;">
-            <span class="event-card-title">${event.name}</span>
-            <span class="event-card-desc">${event.description || ''}</span>
-            ${hybridNote}
-          </div>
-          <div style="margin-left: 15px; display: flex; align-items: center;">
-            ${btnHtml}
-          </div>
-        </div>`;
-    });
-
-    html += `</div></div>`;
-  }
+      <div class="event-card" style="cursor: default;">
+        <div class="event-card-details" style="flex: 1;">
+          <span class="event-card-title">${event.name}</span>
+          <span class="event-card-desc">${event.description || ''}</span>
+          <span class="event-badge" style="margin-top: 4px; display: inline-block;">Category: ${event.category}</span>
+          ${hybridNote}
+        </div>
+        <div style="margin-left: 15px; display: flex; align-items: center;">
+          ${btnHtml}
+        </div>
+      </div>`;
+  });
+  html += `</div>`;
 
   container.innerHTML = html;
 }
@@ -457,142 +485,136 @@ function renderTeamEnrollment(events = allEventsList) {
   const container = document.getElementById('team-events-list');
   const teamEvents = events.filter(e => e.teamAllowed);
 
-  if (teamEvents.length === 0) {
-    container.innerHTML = '<p class="help-text">No active team events found.</p>';
+  // Render horizontal category navigation bar
+  renderCategoryTabs(teamEvents);
+
+  // Filter events based on selected category
+  const filteredEvents = teamEvents.filter(e => selectedCategory === 'All' || e.category === selectedCategory);
+
+  if (filteredEvents.length === 0) {
+    container.innerHTML = '<p class="help-text">No active team events found in this category.</p>';
     return;
   }
 
-  // Group by category
-  const categories = {};
-  teamEvents.forEach(e => {
-    if (!categories[e.category]) categories[e.category] = [];
-    categories[e.category].push(e);
-  });
+  let html = `<div class="events-grid">`;
+  filteredEvents.forEach(event => {
+    // Check if user is already in a team for this event
+    const userTeam = myTeamsList.find(t => t.eventId === event.eventId);
+    const isRegisteredSolo = registeredEventIds.has(event.eventId) && !userTeam;
 
-  let html = '';
-  for (const [category, catEvents] of Object.entries(categories)) {
-    html += `
-      <div class="events-category-group">
-        <h4 class="category-title">${category}</h4>
-        <div class="events-grid">`;
+    let innerCardContent = '';
 
-    catEvents.forEach(event => {
-      // Check if user is already in a team for this event
-      const userTeam = myTeamsList.find(t => t.eventId === event.eventId);
-      const isRegisteredSolo = registeredEventIds.has(event.eventId) && !userTeam;
+    if (isRegisteredSolo) {
+      // Registered individually - can convert to team
+      innerCardContent = `
+        <div style="margin-top: 10px; font-size: 0.85rem; color: #a5b4fc; background: rgba(99, 102, 241, 0.08); padding: 12px; border-radius: 6px; border: 1px solid rgba(99, 102, 241, 0.15); display: flex; flex-direction: column; gap: 8px;">
+          <span><i class="fa-solid fa-circle-exclamation"></i> You have registered for this event individually. Convert your registration into a team to participate with friends.</span>
+          <button class="submit-btn" style="width: auto; padding: 6px 12px; font-size: 0.8rem; background: var(--secondary); align-self: flex-end;" onclick="convertToTeam('${event.eventId}')">
+            <i class="fa-solid fa-users-gear"></i> Convert to Team
+          </button>
+        </div>`;
+    } else if (!userTeam) {
+      // No team, show Create Team button
+      innerCardContent = `
+        <div style="margin-top: 12px; display: flex; justify-content: flex-end;">
+          <button class="submit-btn" style="width: auto; padding: 8px 16px; font-size: 0.85rem;" onclick="createTeam('${event.eventId}')">
+            <i class="fa-solid fa-users-plus"></i> Create Team
+          </button>
+        </div>`;
+    } else {
+      // Active team panel
+      const teamStatusBadge = userTeam.status === 'registered' 
+        ? `<span class="team-status-badge status-registered">Registered (Locked)</span>` 
+        : `<span class="team-status-badge status-forming">Forming</span>`;
 
-      let innerCardContent = '';
-
-      if (isRegisteredSolo) {
-        // Registered individually - can convert to team
-        innerCardContent = `
-          <div style="margin-top: 10px; font-size: 0.85rem; color: #a5b4fc; background: rgba(99, 102, 241, 0.08); padding: 12px; border-radius: 6px; border: 1px solid rgba(99, 102, 241, 0.15); display: flex; flex-direction: column; gap: 8px;">
-            <span><i class="fa-solid fa-circle-exclamation"></i> You have registered for this event individually. Convert your registration into a team to participate with friends.</span>
-            <button class="submit-btn" style="width: auto; padding: 6px 12px; font-size: 0.8rem; background: var(--secondary); align-self: flex-end;" onclick="convertToTeam('${event.eventId}')">
-              <i class="fa-solid fa-users-gear"></i> Convert to Team
-            </button>
-          </div>`;
-      } else if (!userTeam) {
-        // No team, show Create Team button
-        innerCardContent = `
-          <div style="margin-top: 12px; display: flex; justify-content: flex-end;">
-            <button class="submit-btn" style="width: auto; padding: 8px 16px; font-size: 0.85rem;" onclick="createTeam('${event.eventId}')">
-              <i class="fa-solid fa-users-plus"></i> Create Team
-            </button>
-          </div>`;
-      } else {
-        // Active team panel
-        const teamStatusBadge = userTeam.status === 'registered' 
-          ? `<span class="team-status-badge status-registered">Registered (Locked)</span>` 
-          : `<span class="team-status-badge status-forming">Forming</span>`;
-
-        let membersRows = '';
-        userTeam.members.forEach(member => {
-          const removeBtn = (userTeam.isLeader && userTeam.status === 'forming' && member.role !== 'Leader')
-            ? `&nbsp;&nbsp;<button class="logout-btn" style="padding: 2px 6px; font-size: 0.7rem; border-color: rgba(239, 68, 68, 0.4); margin-left: 10px; display:inline-block;" onclick="removeRosterMember('${userTeam.teamId}', '${member.registrationId}', '${member.name}')"><i class="fa-solid fa-user-minus"></i> Remove</button>`
-            : '';
-          membersRows += `
-            <div class="team-member-row" style="align-items: center;">
-              <span><strong>${member.name}</strong> (${member.email})${removeBtn}</span>
-              <span style="color: ${member.role === 'Leader' ? 'var(--secondary)' : 'var(--text-muted)'}; font-weight: 500;">${member.role}</span>
-            </div>`;
-        });
-
-        let pendingRows = '';
-        userTeam.pendingInvites.forEach(inv => {
-          const cancelBtn = (userTeam.isLeader && userTeam.status === 'forming')
-            ? `&nbsp;&nbsp;<button class="logout-btn" style="padding: 2px 6px; font-size: 0.7rem; border-color: rgba(239, 68, 68, 0.4); margin-left: 10px; display:inline-block;" onclick="removeRosterMember('${userTeam.teamId}', '${inv.registrationId}', '${inv.name}', true)"><i class="fa-solid fa-xmark"></i> Cancel</button>`
-            : '';
-          pendingRows += `
-            <div class="team-member-row" style="color: var(--text-dark); align-items: center;">
-              <span>${inv.name} (${inv.email})${cancelBtn}</span>
-              <span>Pending invite...</span>
-            </div>`;
-        });
-
-        let leaderControlsHtml = '';
-        if (userTeam.isLeader && userTeam.status === 'forming') {
-          // Invite block
-          leaderControlsHtml = `
-            <div class="invite-box">
-              <input type="email" id="invite-email-${userTeam.teamId}" class="glassmorphism" style="background: var(--bg-color);" placeholder="Enter friend's Gmail address">
-              <button class="action-btn-primary" style="padding: 8px 14px;" onclick="sendInvitation('${userTeam.teamId}')">Invite</button>
-            </div>
-          `;
-
-          // Lock team button
-          const canLock = userTeam.memberCount >= userTeam.minMembers;
-          const lockDisabledAttr = canLock ? '' : 'disabled';
-          const lockStyle = canLock ? 'box-shadow: 0 0 20px var(--secondary-glow);' : 'background: var(--text-dark); box-shadow: none;';
-          
-          leaderControlsHtml += `
-            <div style="margin-top: 15px; display: flex; justify-content: space-between; align-items: center;">
-              <small class="help-text">Requires min ${userTeam.minMembers} members to lock (current: ${userTeam.memberCount}).</small>
-              <button class="submit-btn" style="width: auto; padding: 8px 20px; font-size: 0.85rem; ${lockStyle}" ${lockDisabledAttr} onclick="lockTeam('${userTeam.teamId}')">
-                <i class="fa-solid fa-lock"></i> Lock & Register Team
-              </button>
-            </div>`;
-        }
-
-        const cancelBtnHtml = userTeam.status === 'forming'
-          ? `<button class="logout-btn" style="padding: 4px 10px; font-size: 0.75rem; border-color: rgba(239, 68, 68, 0.5); margin-left: 5px; display: inline-block;" onclick="cancelTeamRegistration('${userTeam.teamId}', ${userTeam.isLeader})">
-              ${userTeam.isLeader ? '<i class="fa-solid fa-users-slash"></i> Disband' : '<i class="fa-solid fa-right-from-bracket"></i> Leave'}
-             </button>`
+      let membersRows = '';
+      userTeam.members.forEach(member => {
+        const removeBtn = (userTeam.isLeader && userTeam.status === 'forming' && member.role !== 'Leader')
+          ? `&nbsp;&nbsp;<button class="logout-btn" style="padding: 2px 6px; font-size: 0.7rem; border-color: rgba(239, 68, 68, 0.4); margin-left: 10px; display:inline-block;" onclick="removeRosterMember('${userTeam.teamId}', '${member.registrationId}', '${member.name}')"><i class="fa-solid fa-user-minus"></i> Remove</button>`
           : '';
+        membersRows += `
+          <div class="team-member-row" style="align-items: center;">
+            <span><strong>${member.name}</strong> (${member.email})${removeBtn}</span>
+            <span style="color: ${member.role === 'Leader' ? 'var(--secondary)' : 'var(--text-muted)'}; font-weight: 500;">${member.role}</span>
+          </div>`;
+      });
 
-        innerCardContent = `
-          <div class="team-panel-card">
-            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; flex-wrap: wrap; gap: 6px;">
-              <span style="font-family: var(--font-heading); font-size: 0.9rem; font-weight: 700; color: #fff;">Team: ${userTeam.teamId}</span>
-              <div style="display: flex; align-items: center; gap: 4px;">
-                ${teamStatusBadge}
-                ${cancelBtnHtml}
-              </div>
-            </div>
-            
-            <div class="team-members-list">
-              <span style="font-size: 0.75rem; color: var(--text-dark); font-weight: 600; text-transform: uppercase;">Team Roster</span>
-              ${membersRows}
-              ${pendingRows}
-            </div>
+      let pendingRows = '';
+      userTeam.pendingInvites.forEach(inv => {
+        const cancelBtn = (userTeam.isLeader && userTeam.status === 'forming')
+          ? `&nbsp;&nbsp;<button class="logout-btn" style="padding: 2px 6px; font-size: 0.7rem; border-color: rgba(239, 68, 68, 0.4); margin-left: 10px; display:inline-block;" onclick="removeRosterMember('${userTeam.teamId}', '${inv.registrationId}', '${inv.name}', true)"><i class="fa-solid fa-xmark"></i> Cancel</button>`
+          : '';
+        pendingRows += `
+          <div class="team-member-row" style="color: var(--text-dark); align-items: center;">
+            <span>${inv.name} (${inv.email})${cancelBtn}</span>
+            <span>Pending invite...</span>
+          </div>`;
+      });
 
-            ${leaderControlsHtml}
+      let leaderControlsHtml = '';
+      if (userTeam.isLeader && userTeam.status === 'forming') {
+        // Invite block
+        leaderControlsHtml = `
+          <div class="invite-box">
+            <input type="email" id="invite-email-${userTeam.teamId}" class="glassmorphism" style="background: var(--bg-color);" placeholder="Enter friend's Gmail address">
+            <button class="action-btn-primary" style="padding: 8px 14px;" onclick="sendInvitation('${userTeam.teamId}')">Invite</button>
+          </div>
+        `;
+
+        // Lock team button
+        const canLock = userTeam.memberCount >= userTeam.minMembers;
+        const lockDisabledAttr = canLock ? '' : 'disabled';
+        const lockStyle = canLock ? 'box-shadow: 0 0 20px var(--secondary-glow);' : 'background: var(--text-dark); box-shadow: none;';
+        
+        leaderControlsHtml += `
+          <div style="margin-top: 15px; display: flex; justify-content: space-between; align-items: center;">
+            <small class="help-text">Requires min ${userTeam.minMembers} members to lock (current: ${userTeam.memberCount}).</small>
+            <button class="submit-btn" style="width: auto; padding: 8px 20px; font-size: 0.85rem; ${lockStyle}" ${lockDisabledAttr} onclick="lockTeam('${userTeam.teamId}')">
+              <i class="fa-solid fa-lock"></i> Lock & Register Team
+            </button>
           </div>`;
       }
 
-      html += `
-        <div class="event-card" style="cursor: default; flex-direction: column; align-items: stretch; gap: 4px;">
-          <div class="event-card-details">
-            <span class="event-card-title">${event.name}</span>
-            <span class="event-card-desc">${event.description || ''}</span>
-            <span class="event-badge" style="margin-top: 4px;">Team size: ${event.minMembers} - ${event.maxMembers} members</span>
-          </div>
-          ${innerCardContent}
-        </div>`;
-    });
+      const cancelBtnHtml = userTeam.status === 'forming'
+        ? `<button class="logout-btn" style="padding: 4px 10px; font-size: 0.75rem; border-color: rgba(239, 68, 68, 0.5); margin-left: 5px; display: inline-block;" onclick="cancelTeamRegistration('${userTeam.teamId}', ${userTeam.isLeader})">
+            ${userTeam.isLeader ? '<i class="fa-solid fa-users-slash"></i> Disband' : '<i class="fa-solid fa-right-from-bracket"></i> Leave'}
+           </button>`
+        : '';
 
-    html += `</div></div>`;
-  }
+      innerCardContent = `
+        <div class="team-panel-card">
+          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; flex-wrap: wrap; gap: 6px;">
+            <span style="font-family: var(--font-heading); font-size: 0.9rem; font-weight: 700; color: #fff;">Team: ${userTeam.teamId}</span>
+            <div style="display: flex; align-items: center; gap: 4px;">
+              ${teamStatusBadge}
+              ${cancelBtnHtml}
+            </div>
+          </div>
+          
+          <div class="team-members-list">
+            <span style="font-size: 0.75rem; color: var(--text-dark); font-weight: 600; text-transform: uppercase;">Team Roster</span>
+            ${membersRows}
+            ${pendingRows}
+          </div>
+
+          ${leaderControlsHtml}
+        </div>`;
+    }
+
+    html += `
+      <div class="event-card" style="cursor: default; flex-direction: column; align-items: stretch; gap: 4px;">
+        <div class="event-card-details">
+          <span class="event-card-title">${event.name}</span>
+          <span class="event-card-desc">${event.description || ''}</span>
+          <div style="display: flex; gap: 8px; flex-wrap: wrap; margin-top: 4px;">
+            <span class="event-badge">Team size: ${event.minMembers} - ${event.maxMembers} members</span>
+            <span class="event-badge" style="background: rgba(6, 182, 212, 0.08); color: var(--secondary); border-color: rgba(6, 182, 212, 0.15);">Category: ${event.category}</span>
+          </div>
+        </div>
+        ${innerCardContent}
+      </div>`;
+  });
+  html += `</div>`;
 
   container.innerHTML = html;
 }
@@ -675,23 +697,28 @@ async function lockTeam(teamId) {
   }
 }
 
-// --- 9. Utility UI Helpers ---
+// // --- 9. Utility UI Helpers ---
 function switchEnrollSubTab(tab) {
   const indivTrigger = document.getElementById('tab-indiv-trigger');
   const teamTrigger = document.getElementById('tab-team-trigger');
   const indivPane = document.getElementById('enroll-indiv-pane');
   const teamPane = document.getElementById('enroll-team-pane');
 
+  // Reset category selection on tab change
+  selectedCategory = 'All';
+
   if (tab === 'indiv') {
     indivTrigger.classList.add('active');
     teamTrigger.classList.remove('active');
     indivPane.classList.remove('hidden');
     teamPane.classList.add('hidden');
+    renderIndividualEnrollment();
   } else {
     teamTrigger.classList.add('active');
     indivTrigger.classList.remove('active');
     teamPane.classList.remove('hidden');
     indivPane.classList.add('hidden');
+    renderTeamEnrollment();
   }
   showEnrollAlert(null); // Clear alerts
 }
