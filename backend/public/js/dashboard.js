@@ -550,24 +550,36 @@ function renderTeamEnrollment(events = allEventsList) {
       let membersRows = '';
       userTeam.members.forEach(member => {
         const removeBtn = (userTeam.isLeader && userTeam.status === 'forming' && member.role !== 'Leader')
-          ? `&nbsp;&nbsp;<button class="logout-btn" style="padding: 2px 6px; font-size: 0.7rem; border-color: rgba(239, 68, 68, 0.4); margin-left: 10px; display:inline-block;" onclick="removeRosterMember('${userTeam.teamId}', '${member.registrationId}', '${member.name}')"><i class="fa-solid fa-user-minus"></i> Remove</button>`
+          ? `<button class="logout-btn" style="padding: 2px 8px; font-size: 0.7rem; margin-top: 0; display: inline-block;" onclick="removeRosterMember('${userTeam.teamId}', '${member.registrationId}', '${member.name}')"><i class="fa-solid fa-user-minus"></i> Remove</button>`
           : '';
         membersRows += `
-          <div class="team-member-row" style="align-items: center;">
-            <span><strong>${member.name}</strong> (${member.email})${removeBtn}</span>
-            <span style="color: ${member.role === 'Leader' ? 'var(--secondary)' : 'var(--text-muted)'}; font-weight: 500;">${member.role}</span>
+          <div class="team-member-row" style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 8px; padding: 10px; background: rgba(0,0,0,0.15); border: 2px solid #000; margin-bottom: 6px;">
+            <div style="display: flex; flex-direction: column; min-width: 120px; text-align: left;">
+              <strong style="color: var(--text-main); font-size: 0.85rem;">${member.name}</strong>
+              <span style="color: var(--text-muted); font-size: 0.75rem; word-break: break-all;">${member.email}</span>
+            </div>
+            <div style="display: flex; align-items: center; gap: 8px; flex-wrap: wrap;">
+              <span style="color: ${member.role === 'Leader' ? 'var(--secondary)' : 'var(--text-muted)'}; font-weight: 800; font-size: 0.7rem; text-transform: uppercase; background: #000; padding: 2px 6px; border: 1px solid rgba(255,255,255,0.1);">${member.role}</span>
+              ${removeBtn}
+            </div>
           </div>`;
       });
 
       let pendingRows = '';
       userTeam.pendingInvites.forEach(inv => {
         const cancelBtn = (userTeam.isLeader && userTeam.status === 'forming')
-          ? `&nbsp;&nbsp;<button class="logout-btn" style="padding: 2px 6px; font-size: 0.7rem; border-color: rgba(239, 68, 68, 0.4); margin-left: 10px; display:inline-block;" onclick="removeRosterMember('${userTeam.teamId}', '${inv.registrationId}', '${inv.name}', true)"><i class="fa-solid fa-xmark"></i> Cancel</button>`
+          ? `<button class="logout-btn" style="padding: 2px 8px; font-size: 0.7rem; margin-top: 0; display: inline-block;" onclick="removeRosterMember('${userTeam.teamId}', '${inv.registrationId}', '${inv.name}', true)"><i class="fa-solid fa-xmark"></i> Cancel</button>`
           : '';
         pendingRows += `
-          <div class="team-member-row" style="color: var(--text-dark); align-items: center;">
-            <span>${inv.name} (${inv.email})${cancelBtn}</span>
-            <span>Pending invite...</span>
+          <div class="team-member-row" style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 8px; padding: 10px; background: rgba(0,0,0,0.1); border: 2px dashed rgba(255,255,255,0.15); margin-bottom: 6px; opacity: 0.85;">
+            <div style="display: flex; flex-direction: column; min-width: 120px; text-align: left;">
+              <strong style="color: var(--text-muted); font-size: 0.85rem;">${inv.name}</strong>
+              <span style="color: var(--text-dark); font-size: 0.75rem; word-break: break-all;">${inv.email}</span>
+            </div>
+            <div style="display: flex; align-items: center; gap: 8px; flex-wrap: wrap;">
+              <span style="color: var(--text-dark); font-weight: 800; font-size: 0.7rem; text-transform: uppercase; background: #000; padding: 2px 6px; border: 1px solid rgba(255,255,255,0.05);">Invited</span>
+              ${cancelBtn}
+            </div>
           </div>`;
       });
 
