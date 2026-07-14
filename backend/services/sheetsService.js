@@ -102,54 +102,69 @@ const queueRegistrationSync = async (registration, event) => {
   }
 };
 
+const creatingSheets = {};
+
 /**
  * Helper to ensure a sheet tab exists in Google Sheets, creating it and adding headers if missing.
  */
 const ensureSheetExists = async (sheetName) => {
-  try {
-    const metadata = await sheetsClient.spreadsheets.get({
-      spreadsheetId
-    });
-    const sheetTitles = (metadata.data.sheets || []).map(s => s.properties.title);
-    if (!sheetTitles.includes(sheetName)) {
-      console.log(`Sheet "${sheetName}" not found. Creating programmatically...`);
-      await sheetsClient.spreadsheets.batchUpdate({
-        spreadsheetId,
-        resource: {
-          requests: [
-            {
-              addSheet: {
-                properties: {
-                  title: sheetName
+  if (creatingSheets[sheetName]) {
+    await creatingSheets[sheetName];
+    return;
+  }
+
+  creatingSheets[sheetName] = (async () => {
+    try {
+      const metadata = await sheetsClient.spreadsheets.get({
+        spreadsheetId
+      });
+      const sheetTitles = (metadata.data.sheets || []).map(s => s.properties.title);
+      if (!sheetTitles.includes(sheetName)) {
+        console.log(`Sheet "${sheetName}" not found. Creating programmatically...`);
+        await sheetsClient.spreadsheets.batchUpdate({
+          spreadsheetId,
+          resource: {
+            requests: [
+              {
+                addSheet: {
+                  properties: {
+                    title: sheetName
+                  }
                 }
               }
-            }
-          ]
+            ]
+          }
+        });
+        console.log(`Sheet "${sheetName}" created successfully.`);
+
+        let headers;
+        if (sheetName === 'Participants') {
+          headers = [['Registration ID', 'Name', 'Age', 'Gender', 'Email', 'WhatsApp', 'Institution', 'Course', 'Semester', 'UTR', 'Screenshot URL', 'Registered At']];
+        } else if (sheetName === 'Registrations') {
+          headers = [['Registration ID', 'Event ID', 'Event Name', 'Registration Type', 'Team ID', 'Leader ID']];
+        } else if (sheetName === 'Team Event Details') {
+          headers = [['Event Name', 'Team ID', 'Leader Name', 'Member Names']];
+        } else if (sheetName === 'Participant Enrollments') {
+          headers = [['Registration ID', 'Participant Name', 'Email', 'WhatsApp No', 'Event Name', 'Registration Type', 'Team ID']];
         }
-      });
-      console.log(`Sheet "${sheetName}" created successfully.`);
 
-      let headers;
-      if (sheetName === 'Participants') {
-        headers = [['Registration ID', 'Name', 'Age', 'Gender', 'Email', 'WhatsApp', 'Institution', 'Course', 'Semester', 'UTR', 'Screenshot URL', 'Registered At']];
-      } else if (sheetName === 'Registrations') {
-        headers = [['Registration ID', 'Event ID', 'Event Name', 'Registration Type', 'Team ID', 'Leader ID']];
-      } else if (sheetName === 'Team Event Details') {
-        headers = [['Event Name', 'Team ID', 'Leader Name', 'Member Names']];
-      } else if (sheetName === 'Participant Enrollments') {
-        headers = [['Registration ID', 'Participant Name', 'Email', 'WhatsApp No', 'Event Name', 'Registration Type', 'Team ID']];
+        await sheetsClient.spreadsheets.values.append({
+          spreadsheetId,
+          range: `${sheetName}!A1`,
+          valueInputOption: 'USER_ENTERED',
+          resource: { values: headers }
+        });
+        console.log(`Headers appended to "${sheetName}" sheet.`);
       }
-
-      await sheetsClient.spreadsheets.values.append({
-        spreadsheetId,
-        range: `${sheetName}!A1`,
-        valueInputOption: 'USER_ENTERED',
-        resource: { values: headers }
-      });
-      console.log(`Headers appended to "${sheetName}" sheet.`);
+    } catch (err) {
+      console.error(`Error checking/creating sheet "${sheetName}":`, err.message);
     }
-  } catch (err) {
-    console.error(`Error checking/creating sheet "${sheetName}":`, err.message);
+  })();
+
+  try {
+    await creatingSheets[sheetName];
+  } finally {
+    delete creatingSheets[sheetName];
   }
 };
 
@@ -558,6 +573,9 @@ const startQueueWorker = () => {
             existingTask.status = 'PENDING';
             existingTask.retryCount = 0;
             await existingTask.save();
+            await processSingleTask(existingTask).catch(err => {
+              console.error(`[SHEETS WORKER] Registration sync failed for ID: ${existingTask.registrationId}:`, err.message);
+            });
           }
         }
       }
