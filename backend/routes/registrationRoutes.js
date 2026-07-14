@@ -169,8 +169,8 @@ router.post('/', upload.single('paymentScreenshot'), async (req, res) => {
     });
     await user.save();
 
-    // 7. Sync Google Sheets Synchronization (awaited for Vercel stability)
-    await queueParticipantSync(user);
+    // 7. Sync Google Sheets Synchronization (in background)
+    queueParticipantSync(user).catch(err => console.error('[SHEETS BACKGROUND ERROR] Failed to sync participant:', err.message));
 
     // 8. Generate receipt PDF buffer (no events initially)
     const pdfBuffer = await generateReceipt(user, password, []);

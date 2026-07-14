@@ -229,8 +229,8 @@ router.post('/register', auth, async (req, res) => {
         leaderReg.status = 'CONFIRMED';
         await leaderReg.save();
         
-        // Sync individual sheets (awaited for Vercel stability)
-        await queueRegistrationSync(leaderReg, event);
+        // Sync individual sheets in background
+        queueRegistrationSync(leaderReg, event).catch(err => console.error('[SHEETS BACKGROUND ERROR] Failed to sync leader registration:', err.message));
       }
 
       // 2. Cancel all pending invitations
@@ -262,10 +262,10 @@ router.post('/register', auth, async (req, res) => {
       { status: 'CONFIRMED' }
     );
 
-    // Sync Google Sheets for all confirmed team registrations (awaited for Vercel stability)
+    // Sync Google Sheets for all confirmed team registrations in background
     const confirmedRegs = await Registration.find({ teamId, eventId: team.eventId, status: 'CONFIRMED' });
     for (const reg of confirmedRegs) {
-      await queueRegistrationSync(reg, event);
+      queueRegistrationSync(reg, event).catch(err => console.error('[SHEETS BACKGROUND ERROR] Failed to sync team member registration:', err.message));
     }
 
     console.log(`[TEAM REGISTERED] Team ${teamId} locked. Registrations confirmed & Google Sheets queue synced.`);
