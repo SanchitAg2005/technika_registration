@@ -135,9 +135,9 @@ const ensureSheetExists = async (sheetName) => {
       } else if (sheetName === 'Registrations') {
         headers = [['Registration ID', 'Event ID', 'Event Name', 'Registration Type', 'Team ID', 'Leader ID']];
       } else if (sheetName === 'Team Event Details') {
-        headers = [['Event Name', 'Team ID', 'Leader ID', 'Member Personal ID', 'Role']];
-      } else if (sheetName === 'Every Participant Details') {
-        headers = [['Registration ID', 'Name', 'Email', 'WhatsApp No', 'Academic Institution', 'Course', 'Semester', 'Enrolled Events']];
+        headers = [['Event Name', 'Team ID', 'Leader Name', 'Member Names']];
+      } else if (sheetName === 'Participant Enrollments') {
+        headers = [['Registration ID', 'Participant Name', 'Email', 'WhatsApp No', 'Event Name', 'Registration Type', 'Team ID']];
       }
 
       await sheetsClient.spreadsheets.values.append({
@@ -280,70 +280,108 @@ const processSingleTask = async (task) => {
     }
 
     // === NEW SHEETS SYNC SECTION ===
-    // 1. Every Participant Details Sync
-    // This sheet is updated for BOTH Participant and Registration task types.
-    try {
-      const User = require('../models/User');
-      const Registration = require('../models/Registration');
-      const Event = require('../models/Event');
+    // 1. Participant Enrollments Sync
+    if (task.type === 'REGISTRATION') {
+      try {
+        const User = require('../models/User');
+        const user = await User.findOne({ registrationId: task.registrationId });
+        if (user) {
+          const participantRow = [[
+            user.registrationId,
+            user.name,
+            user.email,
+            user.whatsapp,
+            task.data.eventName,
+            task.data.registrationType,
+            task.data.teamId || 'N/A'
+          ]];
 
-      const user = await User.findOne({ registrationId: task.registrationId });
-      if (user) {
-        const userRegs = await Registration.find({ registrationId: user.registrationId, status: 'CONFIRMED' });
-        const eventIds = userRegs.map(r => r.eventId);
-        const events = await Event.find({ eventId: { $in: eventIds } });
-        const eventNames = events.map(e => e.name).join(', ');
+          await ensureSheetExists('Participant Enrollments');
 
-        const participantRow = [[
-          user.registrationId,
-          user.name,
-          user.email,
-          user.whatsapp,
-          user.institution,
-          user.course,
-          user.semester,
-          eventNames || 'None'
-        ]];
+          // Idempotent search: Check if row already exists based on Registration ID (col A) and Event Name (col E)
+          let eRowIndex = -1;
+          try {
+            const checkERes = await sheetsClient.spreadsheets.values.get({
+              spreadsheetId,
+              range: 'Participant Enrollments!A:E'
+            });
+            const eRows = checkERes.data.values || [];
+            for (let i = 0; i < eRows.length; i++) {
+              if (eRows[i] && eRows[i][0] === user.registrationId && eRows[i][4] === task.data.eventName) {
+                eRowIndex = i + 1;
+                break;
+              }
+            }
+          } catch (err) {
+            console.warn('[SHEETS] Participant Enrollments check failed:', err.message);
+          }
 
-        await ensureSheetExists('Every Participant Details');
+          if (eRowIndex !== -1) {
+            await sheetsClient.spreadsheets.values.update({
+              spreadsheetId,
+              range: `Participant Enrollments!A${eRowIndex}:G${eRowIndex}`,
+              valueInputOption: 'USER_ENTERED',
+              resource: { values: participantRow }
+            });
+            console.log(`[SYNC UPDATE] Updated Participant Enrollments row ${eRowIndex} for ID: ${user.registrationId}, Event: ${task.data.eventName}`);
+          } else {
+            await sheetsClient.spreadsheets.values.append({
+              spreadsheetId,
+              range: 'Participant Enrollments!A:G',
+              valueInputOption: 'USER_ENTERED',
+              resource: { values: participantRow }
+            });
+            console.log(`[SYNC APPEND] Appended Participant Enrollments row for ID: ${user.registrationId}, Event: ${task.data.eventName}`);
+          }
+        }
+      } catch (err) {
+        console.error('[SHEETS] Failed to sync to Participant Enrollments:', err.message);
+      }
+    }
 
-        let pRowIndex = -1;
-        try {
-          const checkPRes = await sheetsClient.spreadsheets.values.get({
-            spreadsheetId,
-            range: 'Every Participant Details!A:A'
-          });
-          const pRows = checkPRes.data.values || [];
-          for (let i = 0; i < pRows.length; i++) {
-            if (pRows[i] && pRows[i][0] === user.registrationId) {
-              pRowIndex = i + 1;
-              break;
+    // Update Participant Enrollments when Participant profile changes
+    if (task.type === 'PARTICIPANT') {
+      try {
+        const User = require('../models/User');
+        const user = await User.findOne({ registrationId: task.registrationId });
+        if (user) {
+          await ensureSheetExists('Participant Enrollments');
+          let existingRows = [];
+          try {
+            const checkERes = await sheetsClient.spreadsheets.values.get({
+              spreadsheetId,
+              range: 'Participant Enrollments!A:G'
+            });
+            existingRows = checkERes.data.values || [];
+          } catch (err) {
+            console.warn('[SHEETS] Participant Enrollments check failed during profile sync:', err.message);
+          }
+
+          for (let i = 0; i < existingRows.length; i++) {
+            if (existingRows[i] && existingRows[i][0] === user.registrationId) {
+              const rowIndex = i + 1;
+              const updatedRow = [[
+                user.registrationId,
+                user.name,
+                user.email,
+                user.whatsapp,
+                existingRows[i][4], // Keep original Event Name
+                existingRows[i][5], // Keep original Registration Type
+                existingRows[i][6]  // Keep original Team ID
+              ]];
+              await sheetsClient.spreadsheets.values.update({
+                spreadsheetId,
+                range: `Participant Enrollments!A${rowIndex}:G${rowIndex}`,
+                valueInputOption: 'USER_ENTERED',
+                resource: { values: updatedRow }
+              });
+              console.log(`[SYNC UPDATE PROFILE] Updated Participant Enrollments row ${rowIndex} profile fields for ID: ${user.registrationId}`);
             }
           }
-        } catch (err) {
-          console.warn('[SHEETS] Every Participant Details check failed:', err.message);
         }
-
-        if (pRowIndex !== -1) {
-          await sheetsClient.spreadsheets.values.update({
-            spreadsheetId,
-            range: `Every Participant Details!A${pRowIndex}:H${pRowIndex}`,
-            valueInputOption: 'USER_ENTERED',
-            resource: { values: participantRow }
-          });
-          console.log(`[SYNC UPDATE] Updated Every Participant Details row ${pRowIndex} for ID: ${user.registrationId}`);
-        } else {
-          await sheetsClient.spreadsheets.values.append({
-            spreadsheetId,
-            range: 'Every Participant Details!A:H',
-            valueInputOption: 'USER_ENTERED',
-            resource: { values: participantRow }
-          });
-          console.log(`[SYNC APPEND] Appended Every Participant Details row for ID: ${user.registrationId}`);
-        }
+      } catch (err) {
+        console.error('[SHEETS] Failed to sync profile updates to Participant Enrollments:', err.message);
       }
-    } catch (err) {
-      console.error('[SHEETS] Failed to sync to Every Participant Details:', err.message);
     }
 
     // 2. Team Event Details Sync
@@ -353,6 +391,7 @@ const processSingleTask = async (task) => {
         const Team = require('../models/Team');
         const TeamMember = require('../models/TeamMember');
         const Event = require('../models/Event');
+        const User = require('../models/User');
 
         const teamId = task.data.teamId;
         if (teamId && teamId !== 'N/A' && teamId !== 'Invite-only') {
@@ -362,70 +401,64 @@ const processSingleTask = async (task) => {
             const event = await Event.findOne({ eventId: team.eventId });
             const eventName = event ? event.name : task.data.eventName;
 
+            // Fetch Leader Name
+            const leaderUser = await User.findOne({ registrationId: team.leaderId });
+            const leaderName = leaderUser ? leaderUser.name : 'Unknown';
+
+            // Fetch names of other team members
+            const otherMembers = members.filter(m => m.role !== 'Leader');
+            const memberNamesList = [];
+            for (const m of otherMembers) {
+              const u = await User.findOne({ registrationId: m.userId });
+              if (u) memberNamesList.push(u.name);
+            }
+            const memberNamesString = memberNamesList.join(', ');
+
+            const teamRow = [[
+              eventName,
+              teamId,
+              leaderName,
+              memberNamesString || 'None'
+            ]];
+
             await ensureSheetExists('Team Event Details');
 
             let existingRows = [];
             try {
               const checkRes = await sheetsClient.spreadsheets.values.get({
                 spreadsheetId,
-                range: 'Team Event Details!A:E'
+                range: 'Team Event Details!A:D'
               });
               existingRows = checkRes.data.values || [];
             } catch (err) {
               console.warn('[SHEETS] Team Event Details check failed:', err.message);
             }
 
-            // Sync all active team members
-            for (const m of members) {
-              const rowValues = [[
-                eventName,
-                teamId,
-                team.leaderId,
-                m.userId,
-                m.role
-              ]];
-
-              let rowIndex = -1;
-              for (let i = 0; i < existingRows.length; i++) {
-                if (existingRows[i] && existingRows[i][1] === teamId && existingRows[i][3] === m.userId) {
-                  rowIndex = i + 1;
-                  break;
-                }
-              }
-
-              if (rowIndex !== -1) {
-                await sheetsClient.spreadsheets.values.update({
-                  spreadsheetId,
-                  range: `Team Event Details!A${rowIndex}:E${rowIndex}`,
-                  valueInputOption: 'USER_ENTERED',
-                  resource: { values: rowValues }
-                });
-                console.log(`[SYNC UPDATE] Updated Team Event Details row ${rowIndex} for Team: ${teamId}, Member: ${m.userId}`);
-              } else {
-                await sheetsClient.spreadsheets.values.append({
-                  spreadsheetId,
-                  range: 'Team Event Details!A:E',
-                  valueInputOption: 'USER_ENTERED',
-                  resource: { values: rowValues }
-                });
-                console.log(`[SYNC APPEND] Appended Team Event Details row for Team: ${teamId}, Member: ${m.userId}`);
+            // Search for existing row with teamId in column B (index 1)
+            let rowIndex = -1;
+            for (let i = 0; i < existingRows.length; i++) {
+              if (existingRows[i] && existingRows[i][1] === teamId) {
+                rowIndex = i + 1;
+                break;
               }
             }
 
-            // Clear any stale rows in sheet for this teamId that are no longer team members
-            const currentMemberIds = members.map(m => m.userId);
-            for (let i = 0; i < existingRows.length; i++) {
-              if (existingRows[i] && existingRows[i][1] === teamId) {
-                const rowMemberId = existingRows[i][3];
-                if (!currentMemberIds.includes(rowMemberId)) {
-                  const rowIndex = i + 1;
-                  await sheetsClient.spreadsheets.values.clear({
-                    spreadsheetId,
-                    range: `Team Event Details!A${rowIndex}:E${rowIndex}`
-                  });
-                  console.log(`[SYNC CLEAR] Cleared stale Team Event Details row ${rowIndex} for Team: ${teamId}, Member: ${rowMemberId}`);
-                }
-              }
+            if (rowIndex !== -1) {
+              await sheetsClient.spreadsheets.values.update({
+                spreadsheetId,
+                range: `Team Event Details!A${rowIndex}:D${rowIndex}`,
+                valueInputOption: 'USER_ENTERED',
+                resource: { values: teamRow }
+              });
+              console.log(`[SYNC UPDATE] Updated Team Event Details row ${rowIndex} for Team: ${teamId}`);
+            } else {
+              await sheetsClient.spreadsheets.values.append({
+                spreadsheetId,
+                range: 'Team Event Details!A:D',
+                valueInputOption: 'USER_ENTERED',
+                resource: { values: teamRow }
+              });
+              console.log(`[SYNC APPEND] Appended Team Event Details row for Team: ${teamId}`);
             }
           }
         }
