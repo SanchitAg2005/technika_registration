@@ -304,18 +304,20 @@
         gap: 15px;
       }
 
-    /* Category navigation tabs */
+    /* Neo-Brutalist Category Tabs */
     .category-tabs {
       display: flex;
-      gap: 10px;
-      margin-bottom: 20px;
+      gap: 15px;
+      margin-bottom: 25px;
       overflow-x: auto;
-      padding-bottom: 8px;
+      padding-bottom: 12px;
       -webkit-overflow-scrolling: touch;
+      padding-left: 5px; /* offset alignment for box-shadows */
+      padding-right: 5px;
     }
     
     .category-tabs::-webkit-scrollbar {
-      height: 4px;
+      height: 6px;
     }
     
     .category-tabs::-webkit-scrollbar-track {
@@ -323,36 +325,60 @@
     }
     
     .category-tabs::-webkit-scrollbar-thumb {
-      background: rgba(255, 255, 255, 0.1);
-      border-radius: 2px;
+      background: #000;
+      border: 1px solid rgba(255, 255, 255, 0.2);
+      border-radius: 4px;
     }
     
     .category-tab-btn {
-      padding: 6px 14px;
-      background: rgba(255, 255, 255, 0.03);
-      border: 1px solid rgba(255, 255, 255, 0.08);
-      border-radius: 20px;
-      color: var(--text-muted);
+      padding: 10px 22px;
+      background: #090d16;
+      border: 3px solid #000;
+      border-radius: 0px; /* Sharp corners */
+      color: #fff;
       cursor: pointer;
       font-size: 0.85rem;
-      font-weight: 500;
+      font-weight: 800; /* Extra bold text */
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
       white-space: nowrap;
-      transition: all 0.2s ease;
+      transition: all 0.15s cubic-bezier(0.175, 0.885, 0.32, 1.275);
       font-family: var(--font-heading);
+      box-shadow: 4px 4px 0px #000;
+      position: relative;
     }
     
     .category-tab-btn:hover {
-      background: rgba(255, 255, 255, 0.08);
-      color: var(--text-main);
-      border-color: rgba(255, 255, 255, 0.15);
+      background: rgba(255, 255, 255, 0.05);
+      transform: translate(-2px, -2px);
+      box-shadow: 6px 6px 0px #000;
     }
     
+    .category-tab-btn:active {
+      transform: translate(2px, 2px);
+      box-shadow: 2px 2px 0px #000;
+    }
+    
+    /* Neo-Brutalist Active Pill States with custom high-contrast colors per button */
     .category-tab-btn.active {
-      background: var(--secondary);
-      border-color: var(--secondary);
-      color: #0f172a;
-      box-shadow: 0 0 10px rgba(6, 182, 212, 0.3);
-      font-weight: 600;
+      background: #facc15; /* Brutalist yellow */
+      color: #000;
+      border-color: #000;
+      transform: translate(2px, 2px);
+      box-shadow: 2px 2px 0px #000;
+      font-weight: 800;
+    }
+
+    .category-tab-btn.active:nth-child(2n) {
+      background: #06b6d4; /* Brutalist cyan */
+    }
+    
+    .category-tab-btn.active:nth-child(3n) {
+      background: #f43f5e; /* Brutalist rose */
+    }
+    
+    .category-tab-btn.active:nth-child(4n) {
+      background: #a855f7; /* Brutalist purple */
     }
   </style>
 </head>
