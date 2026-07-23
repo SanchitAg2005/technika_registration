@@ -16,7 +16,13 @@ const verifyAdminSecret = (req, res, next) => {
     token = authHeader.substring(7);
   }
   
-  if (token && (token === adminSecret || (cronSecret && token === cronSecret))) {
+  // Also check query parameter "secret"
+  const queryToken = req.query.secret;
+  
+  if (
+    (token && (token === adminSecret || (cronSecret && token === cronSecret))) ||
+    (queryToken && (queryToken === adminSecret || (cronSecret && queryToken === cronSecret)))
+  ) {
     return next();
   }
   
@@ -41,10 +47,8 @@ router.get('/keep-alive', async (req, res) => {
   }
 });
 
-// @route   POST /api/admin/process-queue
-// @desc    Processes pending/failed sheets sync queue tasks (batch triggered by crons)
-// @access  Private (Admin/Cron secret required)
-router.post('/process-queue', verifyAdminSecret, async (req, res) => {
+// Helper to run queue processing logic
+const handleProcessQueue = async (req, res) => {
   try {
     const pendingTasks = await SheetsQueue.find({
       status: { $in: ['PENDING', 'FAILED'] },
@@ -68,12 +72,16 @@ router.post('/process-queue', verifyAdminSecret, async (req, res) => {
     console.error('[ADMIN WORKER] Queue processing failed:', error.message);
     res.status(500).json({ success: false, error: error.message });
   }
-});
+};
 
-// @route   POST /api/admin/reconcile-sheets
-// @desc    Triggers manual full database sync reconciliation to SheetsQueue
+// @route   GET/POST /api/admin/process-queue
+// @desc    Processes pending/failed sheets sync queue tasks (batch triggered by crons)
 // @access  Private (Admin/Cron secret required)
-router.post('/reconcile-sheets', verifyAdminSecret, async (req, res) => {
+router.get('/process-queue', verifyAdminSecret, handleProcessQueue);
+router.post('/process-queue', verifyAdminSecret, handleProcessQueue);
+
+// Helper to run manual database sync reconciliation
+const handleReconcileSheets = async (req, res) => {
   try {
     const result = await reconcileDatabaseToSheets();
     res.json(result);
@@ -81,6 +89,12 @@ router.post('/reconcile-sheets', verifyAdminSecret, async (req, res) => {
     console.error('[ADMIN RECONCILE] Manual reconciliation failed:', error.message);
     res.status(500).json({ success: false, error: error.message });
   }
-});
+};
+
+// @route   GET/POST /api/admin/reconcile-sheets
+// @desc    Triggers manual full database sync reconciliation to SheetsQueue
+// @access  Private (Admin/Cron secret required)
+router.get('/reconcile-sheets', verifyAdminSecret, handleReconcileSheets);
+router.post('/reconcile-sheets', verifyAdminSecret, handleReconcileSheets);
 
 module.exports = router;
