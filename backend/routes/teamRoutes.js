@@ -210,6 +210,10 @@ router.post('/register', auth, async (req, res) => {
       return res.status(403).json({ message: 'Access denied. Only the team leader can lock team registration.' });
     }
 
+    if (team.status === 'registered') {
+      return res.status(400).json({ message: 'This team has already been registered and locked.' });
+    }
+
     const event = await Event.findOne({ eventId: team.eventId });
     
     // Validate minimum members
@@ -454,16 +458,47 @@ router.get('/my-teams', auth, async (req, res) => {
     // 2. Fetch team details
     const teams = await Team.find({ teamId: { $in: teamIds } });
 
+    // 3. Batch fetch all events for these teams
+    const eventIds = teams.map(t => t.eventId);
+    const events = await Event.find({ eventId: { $in: eventIds } });
+    const eventsMap = new Map(events.map(e => [e.eventId, e]));
+
+    // 4. Batch fetch all team members for these teams
+    const allTeamMembers = await TeamMember.find({ teamId: { $in: teamIds } });
+    const userIds = allTeamMembers.map(m => m.userId);
+
+    // 5. Batch fetch all pending invitations for these teams
+    const allPendingInvites = await TeamInvitation.find({ teamId: { $in: teamIds }, status: 'pending' });
+    const inviteeIds = allPendingInvites.map(inv => inv.receiverId);
+
+    // 6. Fetch all required user details in a single query
+    const allUserIds = Array.from(new Set([...userIds, ...inviteeIds]));
+    const users = await User.find({ registrationId: { $in: allUserIds } })
+      .select('name email whatsapp institution registrationId');
+    const usersMap = new Map(users.map(u => [u.registrationId, u]));
+
+    // Group members and invites by teamId for O(1) retrieval
+    const membersByTeam = {};
+    allTeamMembers.forEach(m => {
+      if (!membersByTeam[m.teamId]) membersByTeam[m.teamId] = [];
+      membersByTeam[m.teamId].push(m);
+    });
+
+    const invitesByTeam = {};
+    allPendingInvites.forEach(inv => {
+      if (!invitesByTeam[inv.teamId]) invitesByTeam[inv.teamId] = [];
+      invitesByTeam[inv.teamId].push(inv);
+    });
+
     const result = [];
     for (const team of teams) {
-      const event = await Event.findOne({ eventId: team.eventId });
+      const event = eventsMap.get(team.eventId);
       
-      // Get all joined members
-      const membersList = await TeamMember.find({ teamId: team.teamId });
+      // Map members
+      const membersList = membersByTeam[team.teamId] || [];
       const membersDetail = [];
-      
       for (const m of membersList) {
-        const u = await User.findOne({ registrationId: m.userId }).select('name email whatsapp institution registrationId');
+        const u = usersMap.get(m.userId);
         if (u) {
           membersDetail.push({
             registrationId: u.registrationId,
@@ -476,11 +511,11 @@ router.get('/my-teams', auth, async (req, res) => {
         }
       }
 
-      // Get pending invites
-      const pendingInvites = await TeamInvitation.find({ teamId: team.teamId, status: 'pending' });
+      // Map pending invites
+      const pendingInvites = invitesByTeam[team.teamId] || [];
       const invitesDetail = [];
       for (const inv of pendingInvites) {
-        const u = await User.findOne({ registrationId: inv.receiverId }).select('name email');
+        const u = usersMap.get(inv.receiverId);
         if (u) {
           invitesDetail.push({
             invitationId: inv._id,

@@ -58,15 +58,20 @@ const queueParticipantSync = async (user) => {
       registeredAt: user.createdAt,
     };
 
-    const task = new SheetsQueue({
-      registrationId: user.registrationId,
-      type: 'PARTICIPANT',
-      data: payload,
-    });
-    await task.save();
-    
-    // Proactively trigger and await processing of this single task to ensure it finishes before function exits
-    await processSingleTask(task);
+    await SheetsQueue.findOneAndUpdate(
+      { registrationId: user.registrationId, type: 'PARTICIPANT' },
+      {
+        $set: {
+          data: payload,
+          status: 'PENDING',
+          retryCount: 0,
+          errorMessage: null,
+          processedAt: null
+        }
+      },
+      { upsert: true, new: true, setDefaultsOnInsert: true }
+    );
+    console.log(`[QUEUE] Queued participant sync for ID: ${user.registrationId}`);
   } catch (error) {
     console.error('Failed to queue participant sync:', error.message);
   }
@@ -88,15 +93,24 @@ const queueRegistrationSync = async (registration, event) => {
       leaderId: registration.registrationType === 'TEAM' ? (registration.teamId ? 'Invite-only' : 'N/A') : 'N/A',
     };
 
-    const task = new SheetsQueue({
-      registrationId: registration.registrationId,
-      type: 'REGISTRATION',
-      data: payload,
-    });
-    await task.save();
-
-    // Proactively trigger and await processing of this single task to ensure it finishes before function exits
-    await processSingleTask(task);
+    await SheetsQueue.findOneAndUpdate(
+      {
+        registrationId: registration.registrationId,
+        type: 'REGISTRATION',
+        'data.eventId': registration.eventId
+      },
+      {
+        $set: {
+          data: payload,
+          status: 'PENDING',
+          retryCount: 0,
+          errorMessage: null,
+          processedAt: null
+        }
+      },
+      { upsert: true, new: true, setDefaultsOnInsert: true }
+    );
+    console.log(`[QUEUE] Queued registration sync for ID: ${registration.registrationId}`);
   } catch (error) {
     console.error('Failed to queue registration sync:', error.message);
   }
@@ -173,6 +187,25 @@ const ensureSheetExists = async (sheetName) => {
  * @param {Object} task - SheetsQueue document
  */
 const processSingleTask = async (task) => {
+  // Atomically claim the task to prevent concurrent processing by other workers/threads
+  let claimedTask;
+  try {
+    claimedTask = await SheetsQueue.findOneAndUpdate(
+      { _id: task._id, status: { $in: ['PENDING', 'FAILED'] } },
+      { status: 'PROCESSING' },
+      { new: true }
+    );
+  } catch (dbErr) {
+    console.error(`[SYNC] Failed to atomically claim task ${task._id}:`, dbErr.message);
+  }
+
+  if (!claimedTask) {
+    console.log(`[SYNC] Task ${task._id} for ID ${task.registrationId} already claimed or processed by another worker. Skipping.`);
+    return;
+  }
+
+  task = claimedTask;
+
   if (!isConfigured || !sheetsClient) {
     // Mock successful sync for testing when API is not configured
     task.status = 'SUCCESS';
@@ -235,7 +268,8 @@ const processSingleTask = async (task) => {
           }
         }
       } catch (err) {
-        console.warn('[SHEETS] Participant check failed, appending instead:', err.message);
+        console.error('[SHEETS] Participant check failed:', err.message);
+        throw err;
       }
       
       if (rowIndex !== -1) {
@@ -271,7 +305,8 @@ const processSingleTask = async (task) => {
           }
         }
       } catch (err) {
-        console.warn('[SHEETS] Registration check failed, appending instead:', err.message);
+        console.error('[SHEETS] Registration check failed:', err.message);
+        throw err;
       }
 
       if (rowIndex !== -1) {
@@ -328,7 +363,8 @@ const processSingleTask = async (task) => {
               }
             }
           } catch (err) {
-            console.warn('[SHEETS] Participant Enrollments check failed:', err.message);
+            console.error('[SHEETS] Participant Enrollments check failed:', err.message);
+            throw err;
           }
 
           if (eRowIndex !== -1) {
@@ -369,7 +405,8 @@ const processSingleTask = async (task) => {
             });
             existingRows = checkERes.data.values || [];
           } catch (err) {
-            console.warn('[SHEETS] Participant Enrollments check failed during profile sync:', err.message);
+            console.error('[SHEETS] Participant Enrollments check failed during profile sync:', err.message);
+            throw err;
           }
 
           for (let i = 0; i < existingRows.length; i++) {
@@ -446,7 +483,8 @@ const processSingleTask = async (task) => {
               });
               existingRows = checkRes.data.values || [];
             } catch (err) {
-              console.warn('[SHEETS] Team Event Details check failed:', err.message);
+              console.error('[SHEETS] Team Event Details check failed:', err.message);
+              throw err;
             }
 
             // Search for existing row with teamId in column B (index 1)
@@ -500,6 +538,9 @@ const processSingleTask = async (task) => {
 /**
  * Periodically process failed or pending sync tasks in the queue (retries)
  */
+/**
+ * Periodically process failed or pending sync tasks in the queue (retries)
+ */
 const startQueueWorker = () => {
   if (process.env.VERCEL) {
     console.log('[SHEETS WORKER] Running in Vercel environment. Background intervals and automatic database reconciliation are disabled.');
@@ -517,73 +558,6 @@ const startQueueWorker = () => {
   }).catch(err => {
     console.error('[SHEETS WORKER] Failed to reset failed tasks:', err.message);
   });
-
-  // Reconcile database to SheetsQueue on boot to sync manual Atlas/Compass modifications
-  setTimeout(async () => {
-    try {
-      console.log('[SHEETS WORKER] Starting database sync reconciliation...');
-      const User = require('../models/User');
-      const Registration = require('../models/Registration');
-      const Event = require('../models/Event');
-
-      // Sync all users
-      const users = await User.find({});
-      for (const u of users) {
-        const existingTask = await SheetsQueue.findOne({ registrationId: u.registrationId, type: 'PARTICIPANT' });
-        if (!existingTask) {
-          await queueParticipantSync(u);
-        } else {
-          // Force queue a fresh task to sync manual updates (it will overwrite the sheet row cleanly)
-          const task = new SheetsQueue({
-            registrationId: u.registrationId,
-            type: 'PARTICIPANT',
-            data: {
-              registrationId: u.registrationId,
-              name: u.name,
-              age: u.age,
-              gender: u.gender,
-              email: u.email,
-              whatsapp: u.whatsapp,
-              institution: u.institution,
-              course: u.course,
-              semester: u.semester,
-              utr: u.paymentUTR,
-              screenshotUrl: u.paymentScreenshotUrl,
-              registeredAt: u.createdAt
-            }
-          });
-          await task.save();
-          processSingleTask(task).catch(err => {});
-        }
-      }
-
-      // Sync all confirmed registrations
-      const regs = await Registration.find({ status: 'CONFIRMED' });
-      for (const r of regs) {
-        const ev = await Event.findOne({ eventId: r.eventId });
-        if (ev) {
-          const existingTask = await SheetsQueue.findOne({ 
-            registrationId: r.registrationId, 
-            type: 'REGISTRATION', 
-            'data.eventId': r.eventId 
-          });
-          if (!existingTask) {
-            await queueRegistrationSync(r, ev);
-          } else {
-            existingTask.status = 'PENDING';
-            existingTask.retryCount = 0;
-            await existingTask.save();
-            await processSingleTask(existingTask).catch(err => {
-              console.error(`[SHEETS WORKER] Registration sync failed for ID: ${existingTask.registrationId}:`, err.message);
-            });
-          }
-        }
-      }
-      console.log(`[SHEETS WORKER] Reconciliation complete. Checked ${users.length} users and ${regs.length} registrations.`);
-    } catch (err) {
-      console.error('[SHEETS WORKER] Database reconciliation failed:', err.message);
-    }
-  }, 5000); // 5 seconds delay to allow DB connection to finalize
 
   // Run every 2 minutes
   setInterval(async () => {
@@ -609,8 +583,56 @@ const startQueueWorker = () => {
   }, 120000);
 };
 
+/**
+ * Reconcile database to SheetsQueue manually (sync manual Atlas/Compass modifications)
+ */
+const reconcileDatabaseToSheets = async () => {
+  try {
+    console.log('[SHEETS RECONCILE] Starting database sync reconciliation...');
+    const User = require('../models/User');
+    const Registration = require('../models/Registration');
+    const Event = require('../models/Event');
+
+    // Sync all users
+    const users = await User.find({});
+    let userSyncCount = 0;
+    for (const u of users) {
+      const existingTask = await SheetsQueue.findOne({ registrationId: u.registrationId, type: 'PARTICIPANT' });
+      if (!existingTask) {
+        await queueParticipantSync(u);
+        userSyncCount++;
+      }
+    }
+
+    // Sync all confirmed registrations
+    const regs = await Registration.find({ status: 'CONFIRMED' });
+    let regSyncCount = 0;
+    for (const r of regs) {
+      const ev = await Event.findOne({ eventId: r.eventId });
+      if (ev) {
+        const existingTask = await SheetsQueue.findOne({ 
+          registrationId: r.registrationId, 
+          type: 'REGISTRATION', 
+          'data.eventId': r.eventId 
+        });
+        if (!existingTask) {
+          await queueRegistrationSync(r, ev);
+          regSyncCount++;
+        }
+      }
+    }
+    console.log(`[SHEETS RECONCILE] Reconciliation complete. Queued ${userSyncCount} new users and ${regSyncCount} new registrations.`);
+    return { success: true, queuedUsers: userSyncCount, queuedRegistrations: regSyncCount };
+  } catch (err) {
+    console.error('[SHEETS RECONCILE] Database reconciliation failed:', err.message);
+    throw err;
+  }
+};
+
 module.exports = {
   queueParticipantSync,
   queueRegistrationSync,
   startQueueWorker,
+  processSingleTask,
+  reconcileDatabaseToSheets
 };

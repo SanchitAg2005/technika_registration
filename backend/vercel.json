@@ -8,5 +8,15 @@
       "source": "/(.*)",
       "destination": "/public/$1"
     }
+  ],
+  "crons": [
+    {
+      "path": "/api/admin/process-queue",
+      "schedule": "*/5 * * * *"
+    },
+    {
+      "path": "/api/admin/keep-alive",
+      "schedule": "0 0 */3 * *"
+    }
   ]
 }

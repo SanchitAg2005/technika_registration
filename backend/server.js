@@ -24,6 +24,7 @@ app.use('/api/register', require('./routes/registrationRoutes'));
 app.use('/api/auth', require('./routes/authRoutes'));
 app.use('/api/teams', require('./routes/teamRoutes'));
 app.use('/api/notifications', require('./routes/notificationRoutes'));
+app.use('/api/admin', require('./routes/adminRoutes'));
 
 // Fallback error handler for multer and system errors
 app.use((err, req, res, next) => {

@@ -4,6 +4,8 @@ let currentUser = null;
 let registeredEventIds = new Set();
 let allEventsList = [];
 let myTeamsList = [];
+let lastNotifTimestamp = 0;
+let lastTeamTimestamp = 0;
 
 // Check authentication on load
 if (!token) {
@@ -23,7 +25,9 @@ document.addEventListener('DOMContentLoaded', () => {
   const editProfileForm = document.getElementById('edit-profile-form');
 
   // Fetch initial profile and page details
-  loadDashboardData();
+  loadDashboardData().then(() => {
+    startDashboardPolling();
+  });
 
   // --- 1. Navigation & Tab Switching ---
   navTabBtns.forEach(btn => {
@@ -172,23 +176,32 @@ async function loadDashboardData() {
   }
 
   try {
-    // A. Fetch profile details and registered events
-    const meResponse = await fetch('/api/auth/me', {
-      headers: { 'Authorization': `Bearer ${token}` }
-    });
-    
+    // A. Fetch everything in parallel to eliminate HTTP request waterfalls
+    const [meResponse, notificationsResponse, eventsResponse, teamsResponse] = await Promise.all([
+      fetch('/api/auth/me', { headers: { 'Authorization': `Bearer ${token}` } }),
+      fetch('/api/notifications', { headers: { 'Authorization': `Bearer ${token}` } }),
+      fetch('/api/events'),
+      fetch('/api/teams/my-teams', { headers: { 'Authorization': `Bearer ${token}` } })
+    ]);
+
     if (!meResponse.ok) {
       // Token might be expired
       localStorage.clear();
       window.location.href = 'index.html';
       return;
     }
-    
-    const meData = await meResponse.json();
+
+    const [meData, notifications, events, teams] = await Promise.all([
+      meResponse.json(),
+      notificationsResponse.ok ? notificationsResponse.json() : [],
+      eventsResponse.ok ? eventsResponse.json() : [],
+      teamsResponse.ok ? teamsResponse.json() : []
+    ]);
+
     currentUser = meData.user;
-    
-    // Set global set of registered event IDs
     registeredEventIds = new Set(meData.registeredEvents.map(r => r.eventId));
+    allEventsList = events;
+    myTeamsList = teams;
 
     // Update Profile UI fields
     document.getElementById('profile-reg-id').textContent = currentUser.registrationId;
@@ -200,106 +213,104 @@ async function loadDashboardData() {
     document.getElementById('profile-utr').textContent = currentUser.paymentUTR;
     document.getElementById('profile-gender').textContent = currentUser.gender;
 
-    // B. Fetch notifications/invites
-    await loadNotifications();
-
-    // C. Fetch events and teams details
-    await loadEventsAndTeams();
-
-    // D. Render enrolled events in Profile tab
+    // Render components
+    renderNotificationsUI(notifications);
     renderRegisteredEvents(meData.registeredEvents);
+    renderIndividualEnrollment();
+    renderTeamEnrollment();
+
+    // Set baseline timestamps for polling detector
+    try {
+      const pollRes = await fetch('/api/notifications/poll', {
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+      if (pollRes.ok) {
+        const pollData = await pollRes.json();
+        lastNotifTimestamp = pollData.notifTimestamp;
+        lastTeamTimestamp = pollData.teamTimestamp;
+      }
+    } catch (e) {
+      console.warn('Failed to fetch initial poll timestamps:', e);
+    }
 
   } catch (error) {
     console.error('Error loading dashboard data:', error);
   }
 }
 
-// --- 5. Notifications Handling ---
-async function loadNotifications() {
+// --- 5. Notifications Rendering ---
+function renderNotificationsUI(notifications) {
   const notifContainer = document.getElementById('notifications-container');
   const notifBadge = document.getElementById('notif-badge');
 
-  try {
-    const response = await fetch('/api/notifications', {
-      headers: { 'Authorization': `Bearer ${token}` }
-    });
-    if (!response.ok) throw new Error('Failed to load notifications.');
-    
-    const notifications = await response.json();
-    
-    // Count pending invites
-    const pendingInvites = notifications.filter(n => n.type === 'TEAM_INVITE' && n.invitation && n.invitation.status === 'pending');
-    
-    if (pendingInvites.length > 0) {
-      notifBadge.textContent = pendingInvites.length;
-      notifBadge.classList.remove('hidden');
-    } else {
-      notifBadge.classList.add('hidden');
-    }
+  // Count pending invites
+  const pendingInvites = notifications.filter(n => n.type === 'TEAM_INVITE' && n.invitation && n.invitation.status === 'pending');
+  
+  if (pendingInvites.length > 0) {
+    notifBadge.textContent = pendingInvites.length;
+    notifBadge.classList.remove('hidden');
+  } else {
+    notifBadge.classList.add('hidden');
+  }
 
-    if (notifications.length === 0) {
-      notifContainer.innerHTML = `
-        <div style="text-align: center; color: var(--text-dark); padding: 40px 10px;">
-          <i class="fa-solid fa-envelope-open" style="font-size: 2.2rem; margin-bottom: 12px;"></i>
-          <p>Your inbox is empty. No notifications or team invites received yet.</p>
-        </div>`;
-      return;
-    }
+  if (notifications.length === 0) {
+    notifContainer.innerHTML = `
+      <div style="text-align: center; color: var(--text-dark); padding: 40px 10px;">
+        <i class="fa-solid fa-envelope-open" style="font-size: 2.2rem; margin-bottom: 12px;"></i>
+        <p>Your inbox is empty. No notifications or team invites received yet.</p>
+      </div>`;
+    return;
+  }
 
-    let html = '';
-    notifications.forEach(notif => {
-      const dateStr = new Date(notif.createdAt).toLocaleDateString() + ' ' + new Date(notif.createdAt).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'});
+  let html = '';
+  notifications.forEach(notif => {
+    const dateStr = new Date(notif.createdAt).toLocaleDateString() + ' ' + new Date(notif.createdAt).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'});
+    
+    if (notif.type === 'TEAM_INVITE' && notif.invitation) {
+      const inv = notif.invitation;
       
-      if (notif.type === 'TEAM_INVITE' && notif.invitation) {
-        const inv = notif.invitation;
-        
-        if (inv.status === 'pending') {
-          html += `
-            <div class="notif-card">
-              <div class="notif-info">
-                <h4>Team Invitation: ${inv.eventName}</h4>
-                <p>Leader <strong>${inv.senderName}</strong> (${inv.senderEmail}) invited you to join team <strong>${inv.teamId}</strong>.</p>
-                <small style="color: var(--text-dark); font-size: 0.75rem;"><i class="fa-regular fa-clock"></i> ${dateStr}</small>
-              </div>
-              <div class="notif-actions">
-                <button class="notif-btn-accept" onclick="respondToInvite('${notif._id}', 'accept')"><i class="fa-solid fa-check"></i> Accept</button>
-                <button class="notif-btn-decline" onclick="respondToInvite('${notif._id}', 'decline')"><i class="fa-solid fa-xmark"></i> Decline</button>
-              </div>
-            </div>`;
-        } else {
-          // Invite responded already
-          const statusText = inv.status === 'accepted' ? 'Accepted <i class="fa-solid fa-circle-check"></i>' : 'Declined <i class="fa-solid fa-circle-xmark"></i>';
-          const statusColor = inv.status === 'accepted' ? 'var(--success)' : 'var(--error)';
-          html += `
-            <div class="notif-card" style="opacity: 0.65;">
-              <div class="notif-info">
-                <h4>Team Invitation: ${inv.eventName}</h4>
-                <p>Invitation to team <strong>${inv.teamId}</strong> from ${inv.senderName} was <strong>${inv.status}</strong>.</p>
-                <small style="color: var(--text-dark); font-size: 0.75rem;"><i class="fa-regular fa-clock"></i> ${dateStr}</small>
-              </div>
-              <div style="font-size: 0.85rem; font-weight: 600; color: ${statusColor};">${statusText}</div>
-            </div>`;
-        }
-      } else {
-        // Normal text message notifications (Invite accept logs, etc.)
+      if (inv.status === 'pending') {
         html += `
-          <div class="notif-card" style="opacity: 0.85;">
-            <div class="notif-info" style="flex: 1;">
-              <h4>Notification Log</h4>
-              <p>${notif.message}</p>
+          <div class="notif-card">
+            <div class="notif-info">
+              <h4>Team Invitation: ${inv.eventName}</h4>
+              <p>Leader <strong>${inv.senderName}</strong> (${inv.senderEmail}) invited you to join team <strong>${inv.teamId}</strong>.</p>
               <small style="color: var(--text-dark); font-size: 0.75rem;"><i class="fa-regular fa-clock"></i> ${dateStr}</small>
             </div>
-            <div style="color: var(--text-dark); font-size: 1.1rem;"><i class="fa-regular fa-bell"></i></div>
+            <div class="notif-actions">
+              <button class="notif-btn-accept" onclick="respondToInvite('${notif._id}', 'accept')"><i class="fa-solid fa-check"></i> Accept</button>
+              <button class="notif-btn-decline" onclick="respondToInvite('${notif._id}', 'decline')"><i class="fa-solid fa-xmark"></i> Decline</button>
+            </div>
+          </div>`;
+      } else {
+        // Invite responded already
+        const statusText = inv.status === 'accepted' ? 'Accepted <i class="fa-solid fa-circle-check"></i>' : 'Declined <i class="fa-solid fa-circle-xmark"></i>';
+        const statusColor = inv.status === 'accepted' ? 'var(--success)' : 'var(--error)';
+        html += `
+          <div class="notif-card" style="opacity: 0.65;">
+            <div class="notif-info">
+              <h4>Team Invitation: ${inv.eventName}</h4>
+              <p>Invitation to team <strong>${inv.teamId}</strong> from ${inv.senderName} was <strong>${inv.status}</strong>.</p>
+              <small style="color: var(--text-dark); font-size: 0.75rem;"><i class="fa-regular fa-clock"></i> ${dateStr}</small>
+            </div>
+            <div style="font-size: 0.85rem; font-weight: 600; color: ${statusColor};">${statusText}</div>
           </div>`;
       }
-    });
+    } else {
+      // Normal text message notifications (Invite accept logs, etc.)
+      html += `
+        <div class="notif-card" style="opacity: 0.85;">
+          <div class="notif-info" style="flex: 1;">
+            <h4>Notification Log</h4>
+            <p>${notif.message}</p>
+            <small style="color: var(--text-dark); font-size: 0.75rem;"><i class="fa-regular fa-clock"></i> ${dateStr}</small>
+          </div>
+          <div style="color: var(--text-dark); font-size: 1.1rem;"><i class="fa-regular fa-bell"></i></div>
+        </div>`;
+    }
+  });
 
-    notifContainer.innerHTML = html;
-
-  } catch (error) {
-    console.error('Error fetching notifications:', error);
-    notifContainer.innerHTML = '<p class="error-tooltip">Error checking invitations inbox.</p>';
-  }
+  notifContainer.innerHTML = html;
 }
 
 async function respondToInvite(notifId, action) {
@@ -325,34 +336,34 @@ async function respondToInvite(notifId, action) {
   }
 }
 
-// --- 6. Load & Render Events / Teams ---
-async function loadEventsAndTeams() {
-  // 1. Fetch active events
-  try {
-    const evResponse = await fetch('/api/events');
-    if (!evResponse.ok) throw new Error('Failed to load events.');
-    allEventsList = await evResponse.json();
-  } catch (err) {
-    console.error('Failed to load events:', err);
-  }
+// --- 6. Polling Update Loop ---
+function startDashboardPolling() {
+  setInterval(async () => {
+    // Stop polling if the tab is in the background (visibility-aware API)
+    if (document.hidden) return;
 
-  // 2. Fetch user active team details
-  try {
-    const teamResponse = await fetch('/api/teams/my-teams', {
-      headers: { 'Authorization': `Bearer ${token}` }
-    });
-    if (teamResponse.ok) {
-      myTeamsList = await teamResponse.json();
-    } else {
-      console.warn('Failed to load teams list.');
+    token = localStorage.getItem('token');
+    if (!token) return;
+
+    try {
+      const pollRes = await fetch('/api/notifications/poll', {
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+      if (pollRes.ok) {
+        const pollData = await pollRes.json();
+        
+        // Trigger dashboard reload only if a new update occurred
+        if (pollData.notifTimestamp > lastNotifTimestamp || pollData.teamTimestamp > lastTeamTimestamp) {
+          console.log('[POLL] Background changes detected. Refreshing data...');
+          lastNotifTimestamp = pollData.notifTimestamp;
+          lastTeamTimestamp = pollData.teamTimestamp;
+          await loadDashboardData();
+        }
+      }
+    } catch (err) {
+      console.warn('[POLL] Error checking for dashboard updates:', err.message);
     }
-  } catch (err) {
-    console.error('Error loading teams:', err);
-  }
-
-  // 3. Render Individual and Team Event Tabs
-  renderIndividualEnrollment();
-  renderTeamEnrollment();
+  }, 15000); // 15 seconds polling interval
 }
 
 // Render dynamic enrolled events list inside Profile tab
@@ -706,8 +717,19 @@ async function sendInvitation(teamId) {
   }
 }
 
+let isLockingTeam = false;
 async function lockTeam(teamId) {
+  if (isLockingTeam) return;
+  isLockingTeam = true;
   showEnrollAlert(null);
+
+  const lockBtn = document.querySelector(`button[onclick*="lockTeam('${teamId}')"]`);
+  const originalText = lockBtn ? lockBtn.innerHTML : '';
+  if (lockBtn) {
+    lockBtn.disabled = true;
+    lockBtn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Locking...';
+  }
+
   try {
     const response = await fetch('/api/teams/register', {
       method: 'POST',
@@ -726,6 +748,12 @@ async function lockTeam(teamId) {
   } catch (err) {
     console.error(err);
     showEnrollAlert(err.message || 'Error locking team.', 'error');
+    if (lockBtn) {
+      lockBtn.disabled = false;
+      lockBtn.innerHTML = originalText;
+    }
+  } finally {
+    isLockingTeam = false;
   }
 }
 

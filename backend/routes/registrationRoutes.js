@@ -70,12 +70,13 @@ router.post('/', upload.single('paymentScreenshot'), async (req, res) => {
       return res.status(400).json({ message: 'Password must be at least 6 characters long!' });
     }
 
-    if (!paymentUTR) {
-      return res.status(400).json({ message: 'Payment UTR is required!' });
+    if (!paymentUTR || !/^\d{12}$/.test(paymentUTR.trim())) {
+      return res.status(400).json({ message: 'Transaction UTR must be exactly 12 numeric digits.' });
     }
+    const cleanedUTR = paymentUTR.trim();
 
     // Check unique UTR
-    const existingUTR = await User.findOne({ paymentUTR });
+    const existingUTR = await User.findOne({ paymentUTR: cleanedUTR });
     if (existingUTR) {
       return res.status(400).json({ message: 'This Payment UTR has already been used for registration!' });
     }
@@ -164,7 +165,7 @@ router.post('/', upload.single('paymentScreenshot'), async (req, res) => {
       course,
       semester,
       passwordHash,
-      paymentUTR,
+      paymentUTR: cleanedUTR,
       paymentScreenshotUrl
     });
     await user.save();

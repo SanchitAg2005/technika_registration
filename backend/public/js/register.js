@@ -177,6 +177,15 @@ document.addEventListener('DOMContentLoaded', () => {
       return;
     }
 
+    // UTR check (exactly 12 numeric digits)
+    const utrInput = document.getElementById('paymentUTR');
+    const utrVal = utrInput.value.trim();
+    if (!/^\d{12}$/.test(utrVal)) {
+      showError('Transaction UTR must be exactly 12 numeric digits.');
+      return;
+    }
+    utrInput.value = utrVal;
+
     // Setup FormData
     const formData = new FormData(form);
     formData.set('paymentScreenshot', selectedFile);

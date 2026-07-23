@@ -41,4 +41,6 @@ const SheetsQueueSchema = new mongoose.Schema(
   }
 );
 
+SheetsQueueSchema.index({ registrationId: 1, type: 1, 'data.eventId': 1 }, { unique: true });
+
 module.exports = mongoose.model('SheetsQueue', SheetsQueueSchema);

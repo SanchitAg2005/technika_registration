@@ -184,4 +184,41 @@ router.post('/:id/respond', auth, async (req, res) => {
   }
 });
 
+// @route   GET /api/notifications/poll
+// @desc    Lightweight polling endpoint to detect changes in notifications or team rosters
+// @access  Private
+router.get('/poll', auth, async (req, res) => {
+  const registrationId = req.user.registrationId;
+
+  try {
+    // 1. Get latest notification timestamp
+    const latestNotif = await Notification.findOne({ userId: registrationId })
+      .sort({ createdAt: -1 })
+      .select('createdAt');
+    const notifTimestamp = latestNotif ? latestNotif.createdAt.getTime() : 0;
+
+    // 2. Get latest team update timestamp for teams user is part of
+    const memberships = await TeamMember.find({ userId: registrationId }).select('teamId');
+    const teamIds = memberships.map(m => m.teamId);
+    
+    let teamTimestamp = 0;
+    if (teamIds.length > 0) {
+      const latestTeam = await Team.findOne({ teamId: { $in: teamIds } })
+        .sort({ updatedAt: -1 })
+        .select('updatedAt');
+      teamTimestamp = latestTeam ? latestTeam.updatedAt.getTime() : 0;
+    }
+
+    res.json({
+      success: true,
+      notifTimestamp,
+      teamTimestamp
+    });
+
+  } catch (error) {
+    console.error('Polling error:', error.message);
+    res.status(500).json({ message: 'Server error during polling.' });
+  }
+});
+
 module.exports = router;
